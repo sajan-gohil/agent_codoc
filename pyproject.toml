@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "agent-codoc"
+version = "0.1.0"
+description = "Agent CoDoc is a conversational agent which answers documentation related questions using a RAG based system for context retrieval from documentation. It validates and corrects any code snippets before responding with them."
+authors = ["sajan-gohil <sajangohil9@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+requests = "^2.32.3"
+streamlit = "^1.41.1"
+langchain = "^0.3.14"
+openai = "^1.59.6"
+langchain-openai = "^0.3.0"
+python-dotenv = "^1.0.1"
+langchain-community = "^0.3.14"
+sqlite-vss = "^0.1.2"
+langchain-text-splitters = "^0.3.5"
+sqlite-vec = "^0.1.6"
+
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.31.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
