@@ -1,11 +1,10 @@
 import streamlit as st
-import os
-import uuid
-import sqlite3
-from dotenv import load_dotenv
-from agent_codoc.chat_session import ChatSession
+import time
 import markdown
 import re
+from dotenv import load_dotenv
+from agent_codoc.chat_session import ChatSession
+from agent_codoc.util_data.code_languages import CODE_LANGUAGES
 
 load_dotenv()
 
@@ -24,32 +23,56 @@ def submit():
     st.session_state.input = ''
 
 
-def convert_markdown_to_html(text: str) -> list[tuple[str, str]]:
-    '''Process input text to a  format that streamlit can display as markdown or code'''
-    # Split the text into code and text parts
+def generate_stream(text: str):
+    for i in text.split(" "):
+        time.sleep(0.05)
+        yield i+" "
 
-    text = re.split(r"(```)", text, flags=re.MULTILINE)
+
+def format_display_message(text: str, get_html=False) -> list[tuple[str, str, str]]:
+    """Process input text to a  format that streamlit can display as markdown or code"""
+    # Split the text into code and text parts
+    text = re.split(r"(```\w*)", text, flags=re.MULTILINE)
     parts = []
     start = False
+    current_lang = None
     # Simply doing based on the index of the code block requires lot of other checks
     for part in text:
         # Check if the part is a code block, add as code if it is
-        if part == "```" and not start:
+        if part.startswith("```") and not start:
             start = True
+            current_lang = part[3:] if part[3:] in CODE_LANGUAGES else None
             continue
-        elif part == "```" and start:
+        elif part.startswith("```") and start:
             start = False
+            current_lang = None
             continue
         if start:
-            parts.append((part, "code"))
+            parts.append((part, "code", current_lang))
         else:
-            part = markdown.markdown(part).replace("\n", "<br>").replace(
-                "  ",
-                "&nbsp;&nbsp;").replace("\t",
-                                        "&nbsp;&nbsp;&nbsp;&nbsp;").replace(
-                                            "<li><br>", "<li>")
-            parts.append((part, "text"))
+            if get_html:
+                part = markdown.markdown(part).replace("\n", "<br>").replace(
+                    "  ",
+                    "&nbsp;&nbsp;").replace("\t",
+                                            "&nbsp;&nbsp;&nbsp;&nbsp;").replace(
+                                                "<li><br>", "<li>")
+            parts.append((part, "text", None))
     return parts
+
+def display_message_parts(parts: list[tuple[str, str, str]], display_html=False, stream=False):
+    for part, part_type, part_lang in parts:
+        if part_type == "code":
+            time.sleep(0.05)  # Sleep to make display less jarring
+            st.code(part, language=part_lang)
+            time.sleep(0.02)
+        else:
+            if display_html:
+                st.html(part)
+            else:
+                if stream:
+                    st.write_stream(generate_stream(part))
+                else:
+                    st.markdown(part)
 
 # Chat interface
 if 'messages' not in st.session_state:
@@ -61,54 +84,63 @@ if "chat_session" not in st.session_state:
 
 if "input_value" not in st.session_state:
     st.session_state["input_value"] = ""
-    st.session_state["input"] = ""
+    # st.session_state["input"] = ""
 
+# Flag to indicate if the response is being generated
+if "is_busy" not in st.session_state:
+    st.session_state["is_busy"] = False
 
 # print("m=", st.session_state.messages)
 st.title("LLM Chat Interface")
 st.write("**Chat History**")
 st.divider()
+
+# Markdown doesn't preserve multiple spaces (example: code blocks without backticks passed by user)
+# We can't use streaming response here as it streams everything again with user interaction
 for message in st.session_state.messages:
     st.divider()
-    print(message["content"])
+    # print(message["content"])
     if message["role"] == "user":
-        st.markdown("**You:** \n")
-        message_parts = convert_markdown_to_html(message['content'])
-        for part, part_type in message_parts:
-            if part_type == "code":
-                st.code(part)
-            else:
-                st.html(part)#, unsafe_allow_html=True)
+        message_parts = format_display_message(message['content'], get_html=True)
+        with st.chat_message("user"):
+            display_message_parts(message_parts, display_html=True)
     elif message["role"] == "bot":
-        message_parts = convert_markdown_to_html(message['content'])
-        st.markdown("**Response:** \n")
-        for part, part_type in message_parts:
-            if part_type == "code":
-                st.code(part)
-            else:
-                st.html(part)#, unsafe_allow_html=True)
+        message_parts = format_display_message(message['content'], get_html=True)
+        with st.chat_message("assistant"):
+            display_message_parts(message_parts, display_html=True)
+
 st.divider()
 
-st.text_area("You: ", key="input")
-user_input = st.session_state["input_value"]
+if st.session_state["is_busy"]:
+    # st.text_area("You: ", key="input", disabled=True)
+    st.chat_input("You: ", key="input", disabled=True)
+    # st.button("Send", disabled=True)
+else:
+    # st.text_area("You: ", key="input")
+    st.chat_input("You: ", key="input")
+    user_input = st.session_state["input"]
+    # user_input = st.session_state["input_value"]
 
-if st.button("Send", on_click=submit) and user_input.strip() != "":
-    # Append user input immediately to chat history
-    st.session_state.messages.append({
-        "role":
-        "user",
-        "content":
-        user_input
-    })
+    # if st.button("Send", on_click=submit) and user_input.strip() != "":
+    if user_input and user_input.strip() != "":
+        # Append user input immediately to chat history
+        st.session_state.messages.append({
+            "role":
+            "user",
+            "content":
+            user_input
+        })
+        # Reset the input field for the next message
+        st.session_state["input_value"] = ""
+        st.session_state["is_busy"] = True
+        with st.chat_message("user"):
+            display_message_parts(format_display_message(user_input), display_html=True)
+        # Rerun the app to update the display with the user's message
+        # Show a spinner to indicate that the response is being generated
+        st.rerun()
 
-    # Reset the input field for the next message
-    st.session_state["input_value"] = ""
-
-    # Rerun the app to update the display with the user's message
-    st.rerun()
-
-# After rerun, generate the bot response
-if len(st.session_state.messages
+# After rerun, generate the response
+if st.session_state["is_busy"] and len(st.session_state.messages
        ) > 0 and st.session_state.messages[-1]["role"] == "user":
     user_message = st.session_state.messages[-1]["content"]
     bot_response = st.session_state.chat_session.process_message(user_message)
@@ -118,6 +150,11 @@ if len(st.session_state.messages
         "content":
         bot_response
     })
-
+    st.session_state["is_busy"] = False
+    # We can stream bot response here but user message before this requires proper formatting
+    with st.chat_message("assistant"):
+        display_message_parts(format_display_message(bot_response),
+                              display_html=False,
+                              stream=True)
     # Rerun again to display the bot's response
     st.rerun()
