@@ -17,6 +17,7 @@ langchain-community = "^0.3.14"
 sqlite-vss = "^0.1.2"
 langchain-text-splitters = "^0.3.5"
 sqlite-vec = "^0.1.6"
+markdown = "^3.7"
 
 
 [tool.poetry.group.dev.dependencies]
