@@ -9,7 +9,6 @@ from agent_codoc.util_data.code_languages import CODE_LANGUAGES
 
 load_dotenv()
 
-
 # Streamlit app
 
 def add_message(user_input, bot_response):
@@ -25,7 +24,7 @@ def submit():
 
 def generate_stream(text: str):
     for i in text.split(" "):
-        time.sleep(0.05)
+        time.sleep(0.03)
         yield i+" "
 
 
@@ -51,12 +50,72 @@ def format_display_message(text: str, get_html=False) -> list[tuple[str, str, st
             parts.append((part, "code", current_lang))
         else:
             if get_html:
-                part = markdown.markdown(part).replace("\n", "<br>").replace(
-                    "  ", "&nbsp;&nbsp;").replace(
-                        "\t", "&nbsp;&nbsp;&nbsp;&nbsp;").replace(
-                            "<li><br>",
-                            "<li>").replace('<br><br>', '<br>')
-            parts.append((part, "text", None))
+                # Check if a table exists in the text. If so, keep it as is
+                sub_parts = []
+                tables_exist = False
+                if len(re.findall(r'\|\n *\|', part, flags=re.MULTILINE)) > 1:
+                    tables_exist = True
+                print("tables_exist=", tables_exist, flush=True)
+                print(re.findall(r'\|\n *\|', part, flags=re.MULTILINE), flush=True)
+                if "Specifies the size of the company based on the number of employees." in part:
+                    print("part=", part, flush=True)
+                if not tables_exist:
+                    sub_parts = [part]
+                else:
+                    running_part = ""
+                    is_table = False
+                    # Check start/end of every line to determine if it is a table
+                    for line in part.split("\n"):
+                        print("$", line, "$", flush=True)
+                        if line.strip().startswith("|") and line.strip(
+                        ).endswith("|") and is_table:
+                            running_part += line.strip() + "\n"
+                        elif line.strip().startswith("|") and line.strip(
+                        ).endswith("|") and not is_table:
+                            is_table = True
+                            print("running_part=", running_part)
+                            print("#"*30)
+                            sub_parts.append(running_part)
+                            running_part = "\n" + line.strip() + "\n"
+                        elif ((not line.strip().startswith(
+                                "|"
+                        )) or (not line.strip().endswith("|"))) and is_table:
+                            is_table = False
+                            print("running_part2=", running_part)
+                            print("#" * 30)
+                            sub_parts.append(running_part)
+                            running_part = "\n" + line + "\n"
+                        else:
+                            running_part += line + "\n"
+                    if running_part:
+                        sub_parts.append(running_part)
+
+                # Segregate parts with table and without table
+                for sub_part in sub_parts:
+                    if len(sub_part) == 0:
+                        parts.append(("<br>", "text", None))
+                        continue
+                    if len(sub_part.strip())>0 and sub_part.strip()[0] == "|" and sub_part.strip(
+                    )[-1] == "|":
+                        parts.append(("\n"+sub_part, "markdown", None))
+                        print("MARKDOWN sub_part=", sub_part, flush=True)
+                        # parts.append("<br>" + (sub_part.replace("\n", "<br>").replace(
+                        #     "  ", "&nbsp;&nbsp;").replace(
+                        #         "\t", "&nbsp;&nbsp;&nbsp;&nbsp;"), "markdown",
+                        #               None))  # Process tables with st.markdown
+                    else:
+                        # TODO: Change to regex based substitution
+                        sub_part = markdown.markdown(sub_part).replace("\n", "<br>").replace(
+                            "  ", "&nbsp;&nbsp;").replace(
+                                "\t", "&nbsp;&nbsp;&nbsp;&nbsp;").replace(
+                                    "<li><br>",
+                                    "<li>").replace('<br><br>', '<br>').replace(
+                                        '<h1>',
+                                        '<h3>').replace('</h1>', '</h3>').replace(
+                                            '<h2>', '<h3>').replace('</h2>', '</h3>')
+                        parts.append((sub_part, "text", None))
+            else:
+                parts.append((part, "text", None))
     return parts
 
 def display_message_parts(parts: list[tuple[str, str, str]], display_html=False, stream=False):
@@ -65,6 +124,9 @@ def display_message_parts(parts: list[tuple[str, str, str]], display_html=False,
             time.sleep(0.05)  # Sleep to make display less jarring
             st.code(part, language=part_lang)
             time.sleep(0.05)
+        elif part_type == "markdown":
+            print("part = ", part)
+            st.markdown(part)#, unsafe_allow_html=True)
         else:
             if display_html:
                 st.html(part)

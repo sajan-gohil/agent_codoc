@@ -1112,7 +1112,7 @@ And here is the full dictionary for filter attributes and possible values you ca
     | `ANNUAL_REVENUE` | Specifies the annual revenue of the company. | `types: [between]` | `"USD"`, `"AED"`, `"AUD"`, `"BRL"`, `"CAD"`, `"CNY"`, `"DKK"`, `"EUR"`, `"GBP"`, `"HKD"`, `"IDR"`, `"ILS"`, `"INR"`, `"JPY"`, `"NOK"`, `"NZD"`, `"RUB"`, `"SEK"`, `"SGD"`, `"THB"`, `"TRY"`, `"TWD"` |
     | `DEPARTMENT_HEADCOUNT` | Specifies the headcount of specific departments within the company. | `types: [between]` | `"Accounting"`, `"Administrative"`, `"Arts and Design"`, `"Business Development"`, `"Community and Social Services"`, `"Consulting"`, `"Education"`, `"Engineering"`, `"Entrepreneurship"`, `"Finance"`, `"Healthcare Services"`, `"Human Resources"`, `"Information Technology"`, `"Legal"`, `"Marketing"`, `"Media and Communication"`, `"Military and Protective Services"`, `"Operations"`, `"Product Management"`, `"Program and Project Management"`, `"Purchasing"`, `"Quality Assurance"`, `"Real Estate"`, `"Research"`, `"Sales"`, `"Customer Success and Support"` |
     | `DEPARTMENT_HEADCOUNT_GROWTH` | Specifies the growth of headcount in specific departments. | `types: [between]` | `"Accounting"`, `"Administrative"`, `"Arts and Design"`, `"Business Development"`, `"Community and Social Services"`, `"Consulting"`, `"Education"`, `"Engineering"`, `"Entrepreneurship"`, `"Finance"`, `"Healthcare Services"`, `"Human Resources"`, `"Information Technology"`, `"Legal"`, `"Marketing"`, `"Media and Communication"`, `"Military and Protective Services"`, `"Operations"`, `"Product Management"`, `"Program and Project Management"`, `"Purchasing"`, `"Quality Assurance"`, `"Real Estate"`, `"Research"`, `"Sales"`, `"Customer Success and Support"` |
-    | `KEYWORD` | Filters based on specific keywords related to the company. | `types: [in]` | List of strings (max length 1)
+    | `KEYWORD` | Filters based on specific keywords related to the company. | `types: [in]` | List of strings (max length 1) |
     
     Supports boolean filters.
     
@@ -1122,17 +1122,9 @@ And here is the full dictionary for filter attributes and possible values you ca
     
     | Filter Type | Description | Properties | Value/Sub-filter |
     | --- | --- | --- | --- |
-    | `CURRENT_COMPANY` | Specifies the current company of the person.  | `types: [in, not in]` | List of strings.
-    
-    You can specify names, domains or LinkedIn url of the companies. Example:
-    
-    `”Serve Robotics”`, `“serverobotics.com”`, `“https://www.linkedin.com/company/serverobotics”` |
-    | `CURRENT_TITLE` | Specifies the current title of the person. | `types: [in, not in]` | List of strings. Case in-sensitive contains matching for each of the strings.
-    
-    Example: `["ceo", "founder", "director"]` will match all the profiles with any current job title(s) having any of the 3 strings (”ceo” or “founder” or “director”)  |
-    | `PAST_TITLE` | Specifies the past titles held by the person. | `types: [in, not in]` | List of strings. Case in-sensitive contains matching for each of the strings.
-    
-    Example: `["ceo", "founder", "director"]` will match all the profiles with any past job title(s) having any of the 3 strings (”ceo” or “founder” or “director”)  |
+    | `CURRENT_COMPANY` | Specifies the current company of the person.  | `types: [in, not in]` | List of strings. You can specify names, domains or LinkedIn url of the companies. Example: `”Serve Robotics”`, `“serverobotics.com”`, `“https://www.linkedin.com/company/serverobotics”` |
+    | `CURRENT_TITLE` | Specifies the current title of the person. | `types: [in, not in]` | List of strings. Case in-sensitive contains matching for each of the strings. Example: `["ceo", "founder", "director"]` will match all the profiles with any current job title(s) having any of the 3 strings (”ceo” or “founder” or “director”)  |
+    | `PAST_TITLE` | Specifies the past titles held by the person. | `types: [in, not in]` | List of strings. Case in-sensitive contains matching for each of the strings. Example: `["ceo", "founder", "director"]` will match all the profiles with any past job title(s) having any of the 3 strings (”ceo” or “founder” or “director”)  |
     | `COMPANY_HEADQUARTERS` | Specifies the headquarters of the person's company. | `types: [in, not in]` | [region_values](https://jsonhero.io/j/mjVQGjJEJr8i) |
     | `COMPANY_HEADCOUNT` | Specifies the size of the company based on the number of employees. | `types: [in]` | `"Self-employed"`, `"1-10"`, `"11-50"`, `"51-200"`, `"201-500"`, `"501-1,000"`, `"1,001-5,000"`, `"5,001-10,000"`, `"10,001+"` |
     | `REGION` | Specifies the geographical region of the person. | `types: [in, not in]` | [region_values](https://crustdata-docs-region-json.s3.us-east-2.amazonaws.com/updated_regions.json) |
@@ -1145,20 +1137,12 @@ And here is the full dictionary for filter attributes and possible values you ca
     | `FIRST_NAME` | Specifies the first name of the person. | `types: [in]` | List of strings (max length 1) |
     | `LAST_NAME` | Specifies the last name of the person. | `types: [in]` | List of strings (max length 1) |
     | `FUNCTION` | Specifies the function or role of the person. | `types: [in, not in]` | `"Accounting"`, `"Administrative"`, `"Arts and Design"`, `"Business Development"`, `"Community and Social Services"`, `"Consulting"`, `"Education"`, `"Engineering"`, `"Entrepreneurship"`, `"Finance"`, `"Healthcare Services"`, `"Human Resources"`, `"Information Technology"`, `"Legal"`, `"Marketing"`, `"Media and Communication"`, `"Military and Protective Services"`, `"Operations"`, `"Product Management"`, `"Program and Project Management"`, `"Purchasing"`, `"Quality Assurance"`, `"Real Estate"`, `"Research"`, `"Sales"`, `"Customer Success and Support"` |
-    | `PAST_COMPANY` | Specifies the past companies the person has worked for. | `types: [in, not in]` | List of strings
-    
-    You can specify names, domains or LinkedIn url of the companies. Example:
-    
-    `”Serve Robotics”`, `“serverobotics.com”`, `“https://www.linkedin.com/company/serverobotics”` |
+    | `PAST_COMPANY` | Specifies the past companies the person has worked for. | `types: [in, not in]` | List of strings You can specify names, domains or LinkedIn url of the companies. Example: `”Serve Robotics”`, `“serverobotics.com”`, `“https://www.linkedin.com/company/serverobotics”` |
     | `COMPANY_TYPE` | Specifies the type of company the person works for. | `types: [in]` | `"Public Company"`, `"Privately Held"`, `"Non Profit"`, `"Educational Institution"`, `"Partnership"`, `"Self Employed"`, `"Self Owned"`, `"Government Agency"` |
     | `POSTED_ON_LINKEDIN` | Specifies if the person has posted on LinkedIn. | N/A | N/A |
     | `RECENTLY_CHANGED_JOBS` | Specifies if the person has recently changed jobs. | N/A | N/A |
     | `IN_THE_NEWS` | Specifies if the person has been mentioned in the news. | N/A | N/A |
-    | `KEYWORD` | Filters based on specific keywords related to the company. | `types: [in]` | List of strings (max length 1)
-    
-    Supports boolean filters.
-    
-    Example: `"'sales' or 'gtm' or 'marketer'"`  will match either of these 3 words across the full LinkedIn profile of the person |
+    | `KEYWORD` | Filters based on specific keywords related to the company. | `types: [in]` | List of strings (max length 1) Supports boolean filters. Example: `"'sales' or 'gtm' or 'marketer'"`  will match either of these 3 words across the full LinkedIn profile of the person |
 
 ### **Making Requests**
 
