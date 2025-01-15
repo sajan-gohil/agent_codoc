@@ -2,6 +2,7 @@ import streamlit as st
 import time
 import markdown
 import re
+import tiktoken
 from dotenv import load_dotenv
 from agent_codoc.chat_session import ChatSession
 from agent_codoc.util_data.code_languages import CODE_LANGUAGES
@@ -15,7 +16,6 @@ def add_message(user_input, bot_response):
     """Add a message to the chat history"""
     st.session_state.messages.append({"role": "user", "content": user_input})
     st.session_state.messages.append({"role": "bot", "content": bot_response})
-
 
 def submit():
     """Used to change state of input bar when send is pressed"""
@@ -52,10 +52,10 @@ def format_display_message(text: str, get_html=False) -> list[tuple[str, str, st
         else:
             if get_html:
                 part = markdown.markdown(part).replace("\n", "<br>").replace(
-                    "  ",
-                    "&nbsp;&nbsp;").replace("\t",
-                                            "&nbsp;&nbsp;&nbsp;&nbsp;").replace(
-                                                "<li><br>", "<li>")
+                    "  ", "&nbsp;&nbsp;").replace(
+                        "\t", "&nbsp;&nbsp;&nbsp;&nbsp;").replace(
+                            "<li><br>",
+                            "<li>").replace('<br><br>', '<br>')
             parts.append((part, "text", None))
     return parts
 
@@ -64,7 +64,7 @@ def display_message_parts(parts: list[tuple[str, str, str]], display_html=False,
         if part_type == "code":
             time.sleep(0.05)  # Sleep to make display less jarring
             st.code(part, language=part_lang)
-            time.sleep(0.02)
+            time.sleep(0.05)
         else:
             if display_html:
                 st.html(part)
@@ -112,17 +112,18 @@ for message in st.session_state.messages:
 st.divider()
 
 if st.session_state["is_busy"]:
-    # st.text_area("You: ", key="input", disabled=True)
     st.chat_input("You: ", key="input", disabled=True)
-    # st.button("Send", disabled=True)
 else:
-    # st.text_area("You: ", key="input")
     st.chat_input("You: ", key="input")
     user_input = st.session_state["input"]
-    # user_input = st.session_state["input_value"]
+    # Assert user input is smaller than 4k tokens
 
-    # if st.button("Send", on_click=submit) and user_input.strip() != "":
     if user_input and user_input.strip() != "":
+        if len(tiktoken.encoding_for_model("gpt-4o-mini").encode(
+                user_input)) > 4000:
+            st.error("Input too long. Please keep it under 4000 tokens.")
+            user_input = ""
+            st.stop()
         # Append user input immediately to chat history
         st.session_state.messages.append({
             "role":
@@ -143,7 +144,15 @@ else:
 if st.session_state["is_busy"] and len(st.session_state.messages
        ) > 0 and st.session_state.messages[-1]["role"] == "user":
     user_message = st.session_state.messages[-1]["content"]
-    bot_response = st.session_state.chat_session.process_message(user_message)
+    bot_response, context_docs, qa_context_docs = st.session_state.chat_session.process_message(user_message)
+
+    # Add some context with the response if there is code in the response
+    if bot_response.count("```") > 1:
+        bot_response += "\n" + "="*30 + "\n\n**Some relevant snippets from the documentation which might help:**\n"
+        for doc_index, doc in enumerate(context_docs[:3], 1):
+            bot_response += "-" * 30 + "\n**Snippet " + str(doc_index) + ":**\n"
+            bot_response += f"\n{doc}"
+
     st.session_state.messages.append({
         "role":
         "bot",

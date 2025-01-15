@@ -3,6 +3,7 @@ import sqlite_vec
 
 def initialize_db():
     # Initialize database connection
+    # TODO: Change db connetion to a more secure and thread-safe method
     conn = sqlite3.connect('chat_sessions.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()

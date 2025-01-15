@@ -109,7 +109,9 @@ class RAGDataIO:
     def search_similar(self, query: str):
         """Search for the most similar documents to the query."""
         results = self.documentation_store.similarity_search_with_score(query, k=self.top_k)
-        return results
+        qa_results = self.qa_chat_store.similarity_search_with_score(
+            query, k=self.top_k)
+        return results, qa_results
 
     # def _clear_database(self):
     #     """Clear all documents from the database."""
