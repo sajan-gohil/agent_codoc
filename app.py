@@ -55,10 +55,6 @@ def format_display_message(text: str, get_html=False) -> list[tuple[str, str, st
                 tables_exist = False
                 if len(re.findall(r'\|\n *\|', part, flags=re.MULTILINE)) > 1:
                     tables_exist = True
-                print("tables_exist=", tables_exist, flush=True)
-                print(re.findall(r'\|\n *\|', part, flags=re.MULTILINE), flush=True)
-                if "Specifies the size of the company based on the number of employees." in part:
-                    print("part=", part, flush=True)
                 if not tables_exist:
                     sub_parts = [part]
                 else:
@@ -66,23 +62,18 @@ def format_display_message(text: str, get_html=False) -> list[tuple[str, str, st
                     is_table = False
                     # Check start/end of every line to determine if it is a table
                     for line in part.split("\n"):
-                        print("$", line, "$", flush=True)
                         if line.strip().startswith("|") and line.strip(
                         ).endswith("|") and is_table:
                             running_part += line.strip() + "\n"
                         elif line.strip().startswith("|") and line.strip(
                         ).endswith("|") and not is_table:
                             is_table = True
-                            print("running_part=", running_part)
-                            print("#"*30)
                             sub_parts.append(running_part)
                             running_part = "\n" + line.strip() + "\n"
                         elif ((not line.strip().startswith(
                                 "|"
                         )) or (not line.strip().endswith("|"))) and is_table:
                             is_table = False
-                            print("running_part2=", running_part)
-                            print("#" * 30)
                             sub_parts.append(running_part)
                             running_part = "\n" + line + "\n"
                         else:
@@ -98,11 +89,6 @@ def format_display_message(text: str, get_html=False) -> list[tuple[str, str, st
                     if len(sub_part.strip())>0 and sub_part.strip()[0] == "|" and sub_part.strip(
                     )[-1] == "|":
                         parts.append(("\n"+sub_part, "markdown", None))
-                        print("MARKDOWN sub_part=", sub_part, flush=True)
-                        # parts.append("<br>" + (sub_part.replace("\n", "<br>").replace(
-                        #     "  ", "&nbsp;&nbsp;").replace(
-                        #         "\t", "&nbsp;&nbsp;&nbsp;&nbsp;"), "markdown",
-                        #               None))  # Process tables with st.markdown
                     else:
                         # TODO: Change to regex based substitution
                         sub_part = markdown.markdown(sub_part).replace("\n", "<br>").replace(
@@ -125,7 +111,6 @@ def display_message_parts(parts: list[tuple[str, str, str]], display_html=False,
             st.code(part, language=part_lang)
             time.sleep(0.05)
         elif part_type == "markdown":
-            print("part = ", part)
             st.markdown(part)#, unsafe_allow_html=True)
         else:
             if display_html:
@@ -138,7 +123,6 @@ def display_message_parts(parts: list[tuple[str, str, str]], display_html=False,
 
 # Chat interface
 if 'messages' not in st.session_state:
-    print("Creating messages")
     st.session_state['messages'] = []
 
 if "chat_session" not in st.session_state:
@@ -152,7 +136,6 @@ if "input_value" not in st.session_state:
 if "is_busy" not in st.session_state:
     st.session_state["is_busy"] = False
 
-# print("m=", st.session_state.messages)
 st.title("LLM Chat Interface")
 st.write("**Chat History**")
 st.divider()
@@ -161,7 +144,6 @@ st.divider()
 # We can't use streaming response here as it streams everything again with user interaction
 for message in st.session_state.messages:
     st.divider()
-    # print(message["content"])
     if message["role"] == "user":
         message_parts = format_display_message(message['content'], get_html=True)
         with st.chat_message("user"):
@@ -211,7 +193,7 @@ if st.session_state["is_busy"] and len(st.session_state.messages
     # Add some context with the response if there is code in the response
     if bot_response.count("```") > 1:
         bot_response += "\n" + "="*30 + "\n\n**Some relevant snippets from the documentation which might help:**\n"
-        for doc_index, doc in enumerate(context_docs[:3], 1):
+        for doc_index, doc in enumerate(context_docs[:2], 1):
             bot_response += "-" * 30 + "\n**Snippet " + str(doc_index) + ":**\n"
             bot_response += f"\n{doc}"
 
