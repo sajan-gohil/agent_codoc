@@ -1,3 +1,4 @@
+"""Streamlit app"""
 import streamlit as st
 import time
 import markdown
@@ -9,12 +10,13 @@ from agent_codoc.util_data.code_languages import CODE_LANGUAGES
 
 load_dotenv()
 
-# Streamlit app
+
 
 def add_message(user_input, bot_response):
     """Add a message to the chat history"""
     st.session_state.messages.append({"role": "user", "content": user_input})
     st.session_state.messages.append({"role": "bot", "content": bot_response})
+
 
 def submit():
     """Used to change state of input bar when send is pressed"""
@@ -25,7 +27,29 @@ def submit():
 def generate_stream(text: str):
     for i in text.split(" "):
         time.sleep(0.03)
-        yield i+" "
+        yield i + " "
+
+
+def postprocess_string(text: str) -> str:
+    replacements = {
+        "\n": "<br>",
+        "  ": "&nbsp;&nbsp;",
+        "\t": "&nbsp;&nbsp;&nbsp;&nbsp;",
+        "<li><br>": "<li>",
+        "<br><br>": "<br>",
+        "<h1>": "<h3>",
+        "</h1>": "</h3>",
+        "<h2>": "<h3>",
+        "</h2>": "</h3>",
+        "<code>": "",
+        "</code>": "",
+        "<pre>": "",
+        "</pre>": "",
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
 
 
 def format_display_message(text: str, get_html=False) -> list[tuple[str, str, str]]:
@@ -91,18 +115,12 @@ def format_display_message(text: str, get_html=False) -> list[tuple[str, str, st
                         parts.append(("\n"+sub_part, "markdown", None))
                     else:
                         # TODO: Change to regex based substitution
-                        sub_part = markdown.markdown(sub_part).replace("\n", "<br>").replace(
-                            "  ", "&nbsp;&nbsp;").replace(
-                                "\t", "&nbsp;&nbsp;&nbsp;&nbsp;").replace(
-                                    "<li><br>",
-                                    "<li>").replace('<br><br>', '<br>').replace(
-                                        '<h1>',
-                                        '<h3>').replace('</h1>', '</h3>').replace(
-                                            '<h2>', '<h3>').replace('</h2>', '</h3>')
+                        sub_part = postprocess_string(markdown.markdown(sub_part))
                         parts.append((sub_part, "text", None))
             else:
                 parts.append((part, "text", None))
     return parts
+
 
 def display_message_parts(parts: list[tuple[str, str, str]], display_html=False, stream=False):
     for part, part_type, part_lang in parts:
@@ -121,6 +139,7 @@ def display_message_parts(parts: list[tuple[str, str, str]], display_html=False,
                 else:
                     st.markdown(part)
 
+
 # Chat interface
 if 'messages' not in st.session_state:
     st.session_state['messages'] = []
@@ -137,7 +156,7 @@ if "is_busy" not in st.session_state:
     st.session_state["is_busy"] = False
 
 st.title("LLM Chat Interface")
-st.write("**Chat History**")
+st.write("## **Chat History**")
 st.divider()
 
 # Markdown doesn't preserve multiple spaces (example: code blocks without backticks passed by user)
@@ -161,8 +180,8 @@ else:
     st.chat_input("You: ", key="input")
     user_input = st.session_state["input"]
     # Assert user input is smaller than 4k tokens
-
     if user_input and user_input.strip() != "":
+        user_input = user_input.encode("utf-8").decode("utf-8")
         if len(tiktoken.encoding_for_model("gpt-4o-mini").encode(
                 user_input)) > 4000:
             st.error("Input too long. Please keep it under 4000 tokens.")
@@ -188,13 +207,15 @@ else:
 if st.session_state["is_busy"] and len(st.session_state.messages
        ) > 0 and st.session_state.messages[-1]["role"] == "user":
     user_message = st.session_state.messages[-1]["content"]
-    bot_response, context_docs, qa_context_docs = st.session_state.chat_session.process_message(user_message)
+    with st.spinner("Fetching Info..."):
+        (bot_response, context_docs, qa_context_docs
+         ) = st.session_state.chat_session.process_message(user_message)
 
     # Add some context with the response if there is code in the response
     if bot_response.count("```") > 1:
-        bot_response += "\n" + "="*30 + "\n\n**Some relevant snippets from the documentation which might help:**\n"
+        bot_response += "\n\n" + "= "*30 + "\n\n## **Some relevant snippets from the documentation which might help:**\n"
         for doc_index, doc in enumerate(context_docs[:2], 1):
-            bot_response += "-" * 30 + "\n**Snippet " + str(doc_index) + ":**\n"
+            bot_response += "\n\n" + "- " * 30 + "\n\n**Snippet " + str(doc_index) + ":**\n"
             bot_response += f"\n{doc}"
 
     st.session_state.messages.append({
