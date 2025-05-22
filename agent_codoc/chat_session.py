@@ -50,23 +50,42 @@ Your response:
 class ChatSession:
 
     def __init__(self):
-        self.conn, self.cur = initialize_db()
-        self.session_id = str(uuid.uuid4())
-        self.start_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.load_db()
-        self.rag_data_io = RAGDataIO(connection=self.conn,
-                                     cursor=self.cur,
-                                     top_k=10)
-        self.llm = ChatOpenAI(model="gpt-4o-mini", max_retries=2)
-        self.chat_history = []
-        self.encoding = tiktoken.encoding_for_model("gpt-4o-mini")
+        """Initialize chat session with database connection and required components."""
+        try:
+            self.conn, self.cur = initialize_db()
+            self.session_id = str(uuid.uuid4())
+            self.start_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.rag_data_io = RAGDataIO(connection=self.conn,
+                                        cursor=self.cur,
+                                        top_k=10)
+            self.llm = ChatOpenAI(model="gpt-4o-mini", max_retries=2)
+            self.chat_history = []
+            self.encoding = tiktoken.encoding_for_model("gpt-4o-mini")
+            self.load_db()  # Move this after RAGDataIO initialization
+        except Exception as e:
+            print(f"Error initializing ChatSession: {e}")
+            raise
 
     def load_db(self):
-        # Start a new session
-        self.cur.execute(
-            "INSERT INTO sessions (session_id, start_time) VALUES (?, ?)",
-            (self.session_id, self.start_time))
-        self.conn.commit()
+        """Initialize session in the database."""
+        try:
+            # First check if the sessions table exists
+            self.cur.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_id TEXT PRIMARY KEY,
+                    start_time TEXT
+                )
+            """)
+            self.conn.commit()
+            
+            # Then insert the new session
+            self.cur.execute(
+                "INSERT INTO sessions (session_id, start_time) VALUES (?, ?)",
+                (self.session_id, self.start_time))
+            self.conn.commit()
+        except Exception as e:
+            print(f"Error in load_db: {e}")
+            raise
 
     def add_message(self, message):
         self.cur.execute(
