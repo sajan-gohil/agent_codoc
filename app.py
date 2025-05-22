@@ -225,12 +225,12 @@ if st.session_state["is_busy"] and len(st.session_state.messages
         (bot_response, context_docs, qa_context_docs
          ) = st.session_state.chat_session.process_message(user_message)
 
-    # Add some context with the response if there is code in the response
-    if bot_response.count("```") > 1:
-        bot_response += "\n\n" + "= "*30 + "\n\n## **Some relevant snippets from the documentation which might help:**\n"
-        for doc_index, doc in enumerate(context_docs[:2], 1):
-            bot_response += "\n\n" + "- " * 30 + "\n\n**Snippet " + str(doc_index) + ":**\n"
-            bot_response += f"\n{doc}"
+    # # Add some context with the response if there is code in the response
+    # if bot_response.count("```") > 1:
+    #     bot_response += "\n\n" + "= "*30 + "\n\n## **Some relevant snippets from the documentation which might help:**\n"
+    #     for doc_index, doc in enumerate(context_docs[:2], 1):
+    #         bot_response += "\n\n" + "- " * 30 + "\n\n**Snippet " + str(doc_index) + ":**\n"
+    #         bot_response += f"\n{doc}"
 
     st.session_state.messages.append({
         "role":
