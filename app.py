@@ -10,8 +10,6 @@ from agent_codoc.util_data.code_languages import CODE_LANGUAGES
 
 load_dotenv()
 
-
-
 def add_message(user_input, bot_response):
     """Add a message to the chat history"""
     st.session_state.messages.append({"role": "user", "content": user_input})
@@ -156,6 +154,19 @@ if "is_busy" not in st.session_state:
     st.session_state["is_busy"] = False
 
 st.title("LLM Chat Interface")
+
+st.write("### Add Documentation from URL")
+doc_url = st.text_input("Enter documentation URL (Markdown or Text):", key="doc_url_input")
+if st.button("Add Documentation from URL"):
+    if doc_url:
+        try:
+            st.session_state.chat_session.rag_data_io.add_url_document(doc_url)
+            st.success("Document added from URL!")
+        except Exception as e:
+            st.error(f"Failed to add document: {e}")
+    else:
+        st.warning("Please enter a valid URL.")
+
 st.write("## **Chat History**")
 st.divider()
 
