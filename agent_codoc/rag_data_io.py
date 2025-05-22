@@ -4,6 +4,7 @@ import traceback
 import tiktoken
 import requests
 import bs4
+import re
 from typing import List, Tuple
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import SQLiteVec
@@ -128,10 +129,54 @@ class RAGDataIO:
         pass
 
     def add_url_document(self, url: str) -> None:
-        """Fetch a document from a URL and add it to the database."""
+        """Fetch a document from a URL and add it to the database.
+        If the URL is a GitHub repository, it attempts to find and add the README.md.
+        """
         try:
+            # Check if the URL is a GitHub repository URL
+            github_repo_pattern = r"https?://github\.com/([^/]+)/([^/]+)(?:/(?:tree|blob)/([^/]+))?"
+            match = re.match(github_repo_pattern, url)
+
+            if match:
+                user, repo, branch = match.groups()
+                readme_urls_to_try = []
+
+                if branch:
+                    # If a branch is specified in the URL, try that first
+                    readme_urls_to_try.append(f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/README.md")
+                
+                # Add common default branches
+                readme_urls_to_try.extend([
+                    f"https://raw.githubusercontent.com/{user}/{repo}/main/README.md",
+                    f"https://raw.githubusercontent.com/{user}/{repo}/master/README.md"
+                ])
+
+                for readme_url in readme_urls_to_try:
+                    try:
+                        print(f"Attempting to fetch README from: {readme_url}")
+                        response = requests.get(readme_url)
+                        if response.status_code == 200:
+                            content_type = response.headers.get('Content-Type', '')
+                            if 'text/plain' in content_type or readme_url.endswith('.md'): # raw.githubusercontent serves md as text/plain
+                                print(f"Successfully fetched README.md from {readme_url}")
+                                self.add_markdown_document_from_text(response.text)
+                                return # Successfully processed README, so exit
+                            else:
+                                print(f"README found at {readme_url} but content type is not plain text or markdown: {content_type}")
+                        elif response.status_code == 404:
+                            print(f"README.md not found at {readme_url} (404)")
+                        else:
+                            print(f"Failed to fetch README.md from {readme_url}. Status: {response.status_code}")
+                    except requests.exceptions.RequestException as e:
+                        print(f"Error fetching README from {readme_url}: {e}")
+                        # Continue to try other README URLs or fallback
+                
+                # If README processing failed or wasn't applicable, inform and proceed to generic handling (optional)
+                print(f"Could not find or process a README.md for GitHub URL {url}. Attempting generic URL processing.")
+
+            # Fallback to generic URL processing if not a GitHub repo or README not found/processed
             response = requests.get(url)
-            response.raise_for_status()
+            response.raise_for_status() # Will raise an HTTPError for bad responses (4XX or 5XX)
             content_type = response.headers.get('Content-Type', '')
             if url.endswith('.md') or 'markdown' in content_type:
                 # Save to temp file and reuse markdown logic
@@ -149,8 +194,13 @@ class RAGDataIO:
                 lines = [line.strip() for line in text.splitlines()]
                 text = "\n".join(line for line in lines if line)
                 self.add_text_document_from_text(text)
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to fetch document from URL: {url}\nError: {e}")
+            raise RuntimeError(f"Failed to fetch document from URL: {url}. Please check the URL and your network connection.") from e
         except Exception as e:
-            print(f"Failed to fetch or add document from URL: {url}\nError: {e}")
+            print(f"Failed to add document from URL: {url}\nError: {e}")
+            # traceback.print_exc() # Optionally, uncomment for more detailed logs in terminal
+            raise RuntimeError(f"Failed to process or add document content from URL: {url}. The document format might be unsupported or corrupted.") from e
 
     def add_markdown_document_from_text(self, text: str) -> None:
         headers_to_split_on = [

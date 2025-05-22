@@ -159,11 +159,14 @@ st.write("### Add Documentation from URL")
 doc_url = st.text_input("Enter documentation URL (Markdown or Text):", key="doc_url_input")
 if st.button("Add Documentation from URL"):
     if doc_url:
-        try:
-            st.session_state.chat_session.rag_data_io.add_url_document(doc_url)
-            st.success("Document added from URL!")
-        except Exception as e:
-            st.error(f"Failed to add document: {e}")
+        with st.spinner("Adding document..."):
+            try:
+                st.session_state.chat_session.rag_data_io.add_url_document(doc_url)
+                st.success("Document added successfully from URL!")
+            except RuntimeError as e:
+                st.error(f"Failed to add document: {e}")
+            except Exception as e:
+                st.error(f"An unexpected error occurred: {e}")
     else:
         st.warning("Please enter a valid URL.")
 
