@@ -2,7 +2,7 @@
 
 This document outlines the contributions of the team members to the development of the LLM Chat Interface for API Documentation.
 
-## Member A: Core Application Logic & Chat Interface
+## Sajan Gohil: Core Application Logic & Chat Interface
 
 Member A was primarily responsible for establishing the foundational structure of the application and developing the user-facing chat interface. Key contributions include:
 
@@ -12,7 +12,7 @@ Member A was primarily responsible for establishing the foundational structure o
 -   **Core Chat Processing**: Developed the primary workflow in `app.py` for taking user input, invoking the chat processing logic, and displaying the generated responses.
 -   **Initial ChatSession Structure**: Laid the groundwork for the `ChatSession` class in `agent_codoc/chat_session.py`, including basic LLM initialization and the initial message processing flow.
 
-## Member B: RAG System - Document Processing & Vector Store
+## Suraj Kumar Samal : RAG System - Document Processing & Vector Store
 
 Member B focused on the core Retrieval Augmented Generation (RAG) system, particularly the ingestion, processing, and storage of documentation. Key contributions include:
 
@@ -23,7 +23,7 @@ Member B focused on the core Retrieval Augmented Generation (RAG) system, partic
 -   **Embedding Generation**: Configured the use of `OpenAIEmbeddings` (specifically `text-embedding-3-small`) to generate vector representations of the document chunks.
 -   **Similarity Search**: Implemented the `search_similar` method to query the vector store and retrieve documents relevant to a user's query.
 
-## Member C: Database Management & Advanced Documentation Features
+## Ashwini Mandlay: Database Management & Advanced Documentation Features
 
 Member C was responsible for the backend database systems and the more advanced features related to dynamic documentation ingestion. Key contributions include:
 
@@ -35,7 +35,7 @@ Member C was responsible for the backend database systems and the more advanced 
     -   Specifically implemented the detection of GitHub repository URLs and the logic to find, fetch, and process `README.md` files from these repositories (including trying multiple common branch names and README file name casings).
 -   **Error Handling for Data Ingestion**: Implemented error handling (e.g., raising `RuntimeError`) in the URL ingestion process to provide feedback to the Streamlit UI upon failure.
 
-## Member D: LLM Integration, Prompt Engineering & System Refinement
+## Preetam Chhimpa: LLM Integration, Prompt Engineering & System Refinement
 
 Member D focused on the integration of the Large Language Model, optimizing its performance through prompt engineering, and overall system refinement and debugging. Key contributions include:
 

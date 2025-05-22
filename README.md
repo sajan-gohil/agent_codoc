@@ -4,6 +4,8 @@
 
 Navigating the often vast and intricate documentation for APIs that serve large datasets—such as those from OpenStreetMap, public government data portals, or extensive scientific data repositories—can be a significant challenge. This project introduces a Streamlit-based LLM (Large Language Model) chat interface specifically designed to simplify this process. By leveraging a Retrieval Augmented Generation (RAG) approach, the application provides users with an intuitive way to ask questions and receive contextually relevant answers directly from the API documentation. Users can interactively explore API functionalities, understand complex endpoints, and clarify usage details for even the most comprehensive data services. The application further streamlines documentation management by allowing new API documents to be added dynamically from URLs, including intelligent parsing of `README.md` files from GitHub repositories, making it easier to keep the knowledge base current.
 
+## Live Demo
+The LLM chat Interface app can be directly accessed at https://agentcodoc.streamlit.app/
 ## Features
 
 - **Interactive Chat Interface**: Users can ask questions in natural language about the API.
