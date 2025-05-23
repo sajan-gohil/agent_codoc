@@ -148,15 +148,11 @@ class RAGDataIO:
                 # Add common default branches
                 readme_urls_to_try.extend([
                     f"https://raw.githubusercontent.com/{user}/{repo}/main/README.md",
-<<<<<<< HEAD
                     f"https://raw.githubusercontent.com/{user}/{repo}/master/README.md",
                     f"https://raw.githubusercontent.com/{user}/{repo}/master/Readme.md",
                     f"https://raw.githubusercontent.com/{user}/{repo}/main/Readme.md",
                     f"https://raw.githubusercontent.com/{user}/{repo}/main/readme.md",
-                    f"https://raw.githubusercontent.com/{user}/{repo}/master/readme.md",
-=======
-                    f"https://raw.githubusercontent.com/{user}/{repo}/master/README.md"
->>>>>>> 37e6dd6a0d6be5228f7174c3c8db74e1573e4dd0
+                    f"https://raw.githubusercontent.com/{user}/{repo}/master/readme.md"
                 ])
 
                 for readme_url in readme_urls_to_try:
