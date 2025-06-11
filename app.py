@@ -10,8 +10,6 @@ from agent_codoc.util_data.code_languages import CODE_LANGUAGES
 
 load_dotenv()
 
-
-
 def add_message(user_input, bot_response):
     """Add a message to the chat history"""
     st.session_state.messages.append({"role": "user", "content": user_input})
@@ -156,6 +154,22 @@ if "is_busy" not in st.session_state:
     st.session_state["is_busy"] = False
 
 st.title("LLM Chat Interface")
+
+st.write("### Add Documentation from URL")
+doc_url = st.text_input("Enter documentation URL (Markdown or Text):", key="doc_url_input")
+if st.button("Add Documentation from URL"):
+    if doc_url:
+        with st.spinner("Adding document..."):
+            try:
+                st.session_state.chat_session.rag_data_io.add_url_document(doc_url)
+                st.success("Document added successfully from URL!")
+            except RuntimeError as e:
+                st.error(f"Failed to add document: {e}")
+            except Exception as e:
+                st.error(f"An unexpected error occurred: {e}")
+    else:
+        st.warning("Please enter a valid URL.")
+
 st.write("## **Chat History**")
 st.divider()
 
@@ -214,12 +228,12 @@ if st.session_state["is_busy"] and len(st.session_state.messages
     with st.spinner("Evaluating code..."):
         code_eval = st.session_state.chat_session.evaluate_code(bot_response, user_message)
 
-    # Add some context with the response if there is code in the response
-    if bot_response.count("```") > 1:
-        bot_response += "\n\n" + "= "*30 + "\n\n## **Some relevant snippets from the documentation which might help:**\n"
-        for doc_index, doc in enumerate(context_docs[:2], 1):
-            bot_response += "\n\n" + "- " * 30 + "\n\n**Snippet " + str(doc_index) + ":**\n"
-            bot_response += f"\n{doc}"
+    # # Add some context with the response if there is code in the response
+    # if bot_response.count("```") > 1:
+    #     bot_response += "\n\n" + "= "*30 + "\n\n## **Some relevant snippets from the documentation which might help:**\n"
+    #     for doc_index, doc in enumerate(context_docs[:2], 1):
+    #         bot_response += "\n\n" + "- " * 30 + "\n\n**Snippet " + str(doc_index) + ":**\n"
+    #         bot_response += f"\n{doc}"
 
     st.session_state.messages.append({
         "role":

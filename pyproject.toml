@@ -19,6 +19,7 @@ langchain-text-splitters = "^0.3.5"
 sqlite-vec = "^0.1.6"
 markdown = "^3.7"
 tavily-python = "^0.7.5"
+beautifulsoup4 = "^4.13.4"
 
 
 [tool.poetry.group.dev.dependencies]
