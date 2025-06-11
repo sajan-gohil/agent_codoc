@@ -7,6 +7,7 @@ from agent_codoc.rag_data_io import RAGDataIO
 from langchain.schema.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 import requests
+from agent_codoc.agents.library_analyzer import LibraryAnalyzer
 
 BASE_PROMPT = """
 You are a customer support specialist for APIs. Your responses should be clear, accurate, and focused and should provide information from the context provided.
@@ -62,6 +63,7 @@ class ChatSession:
             self.llm = ChatOpenAI(model=model, max_retries=2)
             self.chat_history = []
             self.encoding = tiktoken.encoding_for_model(model)
+            self.library_analyzer = LibraryAnalyzer()
             self.load_db()  # Move this after RAGDataIO initialization
         except Exception as e:
             print(f"Error initializing ChatSession: {e}")

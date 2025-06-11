@@ -198,6 +198,7 @@ class RAGDataIO:
                 lines = [line.strip() for line in text.splitlines()]
                 text = "\n".join(line for line in lines if line)
                 self.add_text_document_from_text(text)
+                
         except requests.exceptions.RequestException as e:
             print(f"Failed to fetch document from URL: {url}\nError: {e}")
             raise RuntimeError(f"Failed to fetch document from URL: {url}. Please check the URL and your network connection.") from e
