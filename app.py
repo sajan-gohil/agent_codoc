@@ -184,57 +184,56 @@ if "is_busy" not in st.session_state:
 
 st.title("LLM Chat Interface")
 
-# Add model selection dropdown
-selected_model = st.selectbox(
-    "Select Model",
-    options=OPENAI_MODELS,
-    index=0,  # Default to gpt-4o-mini
-    key="model_selector"
-)
-
-# Add API key input
-api_key = st.text_input(
-    "OpenAI API Key",
-    type="password",
-    help="Enter your OpenAI API key. Required when changing models.",
-    key="api_key_input"
-)
-
-# Handle API key and model changes
-if "current_model" not in st.session_state:
-    st.session_state.current_model = selected_model
-
-# If API key is provided, validate and set it as environment variable
-if api_key:
-    if validate_api_key(api_key):
-        os.environ["OPENAI_API_KEY"] = api_key
-        if "current_api_key" not in st.session_state or st.session_state.current_api_key != api_key:
-            st.session_state.current_api_key = api_key
-            st.success("API key validated and updated successfully")
-    else:
-        # Reset to default model if API key is invalid
-        st.session_state.model_selector = "gpt-4o-mini"
+# Create sidebar for model selection and API key
+with st.sidebar:
+    st.write("### Settings")
+    
+    # Initialize session state variables if they don't exist
+    if "current_model" not in st.session_state:
         st.session_state.current_model = "gpt-4o-mini"
-        if "current_api_key" in st.session_state:
-            del st.session_state.current_api_key
-        st.error("Invalid API key. Model reset to default.")
+    if "current_api_key" not in st.session_state:
+        st.session_state.current_api_key = None
 
-# Handle model change
-if st.session_state.current_model != selected_model:
-    if not api_key:
-        st.error("Please provide an OpenAI API key to change the model")
-        # Reset the model selector to the previous value
-        st.session_state.model_selector = st.session_state.current_model
-    else:
+    # Add API key input
+    api_key = st.text_input(
+        "OpenAI API Key",
+        type="password",
+        help="Enter your OpenAI API key. Required when changing models.",
+        key="api_key_input"
+    )
+
+    # Add model selection dropdown
+    selected_model = st.selectbox(
+        "Select Model",
+        options=OPENAI_MODELS,
+        index=OPENAI_MODELS.index(st.session_state.current_model),
+        key="model_selector"
+    )
+
+    # Handle API key and model changes
+    if api_key:
         if validate_api_key(api_key):
-            st.session_state.chat_session.change_model(selected_model)
-            st.session_state.current_model = selected_model
-            st.success(f"Model changed to {selected_model}")
+            os.environ["OPENAI_API_KEY"] = api_key
+            if st.session_state.current_api_key != api_key:
+                st.session_state.current_api_key = api_key
+                st.success("API key validated and updated successfully")
         else:
-            # Reset to default model if API key is invalid
-            st.session_state.model_selector = "gpt-4o-mini"
-            st.session_state.current_model = "gpt-4o-mini"
-            st.error("Invalid API key. Model reset to default.")
+            st.error("Invalid API key")
+            st.stop()
+
+    # Handle model change
+    if selected_model != st.session_state.current_model:
+        if not api_key:
+            st.error("Please provide an OpenAI API key to change the model")
+            st.stop()
+        else:
+            if validate_api_key(api_key):
+                st.session_state.chat_session.change_model(selected_model)
+                st.session_state.current_model = selected_model
+                st.success(f"Model changed to {selected_model}")
+            else:
+                st.error("Invalid API key")
+                st.stop()
 
 st.write("### Add Documentation from URL")
 doc_url = st.text_input("Enter documentation URL (Markdown or Text):", key="doc_url_input")
@@ -250,6 +249,48 @@ if st.button("Add Documentation from URL"):
                 st.error(f"An unexpected error occurred: {e}")
     else:
         st.warning("Please enter a valid URL.")
+
+st.write("### Add Documentation from File")
+uploaded_file = st.file_uploader("Upload documentation file", type=['txt', 'md', 'pdf'], key="file_uploader")
+if uploaded_file is not None:
+    # Read file content
+    file_content = uploaded_file.read()
+    
+    # For PDF files, we need to convert to text
+    if uploaded_file.type == "application/pdf":
+        try:
+            import PyPDF2
+            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            file_content = ""
+            for page in pdf_reader.pages:
+                file_content += page.extract_text()
+        except Exception as e:
+            st.error(f"Failed to read PDF file: {e}")
+            st.stop()
+    else:
+        # For text and markdown files
+        file_content = file_content.decode('utf-8')
+    
+    # Count tokens
+    encoding = tiktoken.encoding_for_model("text-embedding-3-small")
+    num_tokens = len(encoding.encode(file_content))
+    
+    if num_tokens > 16000:
+        st.error(f"File is too large ({num_tokens} tokens). Maximum allowed is 16000 tokens.")
+    else:
+        if st.button("Add File to Documentation"):
+            with st.spinner("Adding document..."):
+                try:
+                    # Check if exact content already exists
+                    if uploaded_file.type == "application/pdf":
+                        st.session_state.chat_session.rag_data_io.add_pdf_document(file_content)
+                    elif uploaded_file.name.endswith('.md'):
+                        st.session_state.chat_session.rag_data_io.add_markdown_document_from_text(file_content)
+                    else:
+                        st.session_state.chat_session.rag_data_io.add_text_document_from_text(file_content)
+                    st.success("Document added successfully!")
+                except Exception as e:
+                    st.error(f"Failed to add document: {e}")
 
 st.write("## **Chat History**")
 st.divider()

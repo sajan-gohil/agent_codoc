@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.tools import Tool
 from langchain_openai import ChatOpenAI
@@ -7,6 +7,7 @@ from langchain.tools.tavily_search import TavilySearchResults
 from langchain.schema import SystemMessage
 import os
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
 
@@ -54,15 +55,18 @@ class DocSearchAgent:
         )
         
         # Create the system message
-        system_message = SystemMessage(content="""You are a helpful AI assistant that specializes in finding and explaining documentation.
+        system_message = SystemMessage(content="""You are a helpful AI assistant that specializes in finding documentation URLs.
         When given a query about a library or functionality:
-        1. Use the search tool to find relevant documentation
-        2. Analyze the search results to find the most relevant information
-        3. Provide a clear, concise explanation with relevant code examples if available
-        4. Include links to the official documentation when possible
-        5. If the search results don't provide enough information, say so and suggest alternative search terms
+        1. Use the search tool to find relevant web pages or github repos
+        2. Extract and return ONLY the URLs from the search results
+        3. Format the response as a JSON array of URLs
+        4. Include both GitHub repository URLs and documentation web pages
+        5. Do not include any analysis or explanation
         
-        Always be accurate and honest about what you find. If you're not sure about something, say so.""")
+        Example response format:
+        ["https://github.com/user/repo", "https://docs.example.com/library"]
+        
+        If no relevant URLs are found, return an empty array: []""")
         
         # Create the prompt template
         prompt = ChatPromptTemplate.from_messages([
@@ -82,21 +86,35 @@ class DocSearchAgent:
             verbose=True
         )
     
-    def search_documentation(self, query: str) -> str:
+    def search_documentation(self, query: str) -> List[str]:
         """
-        Search for documentation based on the given query.
+        Search for documentation URLs based on the given query.
         
         Args:
             query: The search query about a library or functionality
             
         Returns:
-            str: The agent's response with documentation information
+            List[str]: A list of URLs to documentation pages or GitHub repositories
         """
         try:
             response = self.agent_executor.invoke({"input": query})
-            return response["output"]
+            # Parse the response as JSON array of URLs
+            urls = eval(response["output"])  # Safe since we control the output format
+            if not isinstance(urls, list):
+                return []
+            
+            # Filter and validate URLs
+            valid_urls = []
+            for url in urls:
+                # Check if it's a GitHub URL or a web page
+                if re.match(r'https?://github\.com/[^/]+/[^/]+', url) or \
+                   re.match(r'https?://[^/]+', url):
+                    valid_urls.append(url)
+            
+            return valid_urls
         except Exception as e:
-            return f"Error searching documentation: {str(e)}"
+            print(f"Error searching documentation: {str(e)}")
+            return []
 
 # Example usage
 if __name__ == "__main__":
@@ -105,5 +123,7 @@ if __name__ == "__main__":
     
     # Example query
     query = "Python requests library POST method documentation"
-    result = agent.search_documentation(query)
-    print(result) 
+    urls = agent.search_documentation(query)
+    print("Found documentation URLs:")
+    for url in urls:
+        print(f"- {url}") 

@@ -122,8 +122,17 @@ class RAGDataIO:
                 texts.append(chunk)
             self.add_documents(texts)
 
-    def add_pdf_document(self, doc_path):
-        pass
+    def add_pdf_document(self, text: str) -> None:
+        """Add a PDF document's text content to the database."""
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=4096,
+            chunk_overlap=50,
+            length_function=len,
+            is_separator_regex=False
+        )
+        documents = splitter.split_text(text)
+        texts = [chunk for chunk in documents]  # Each chunk is a string
+        self.add_documents(texts)
 
     def add_json_document(self, doc_path):
         pass
@@ -246,7 +255,14 @@ class RAGDataIO:
 
     def add_documents(self, texts: List[str], metadatas: dict = None):
         """Add a new document and its embedding to the database."""
-        self.documentation_store.add_texts(texts, metadatas)
+        # Check for duplicates before adding
+        for text in texts:
+            # Check if exact text already exists
+            self.cur.execute("SELECT rowid FROM rag_documentation_database WHERE text = ?", (text,))
+            if self.cur.fetchone() is not None:
+                print(f"Skipping duplicate text chunk")
+                continue
+            self.documentation_store.add_texts([text], [metadatas] if metadatas else None)
 
     def search_similar(self, query: str):
         """Search for the most similar documents to the query."""
