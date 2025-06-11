@@ -50,7 +50,7 @@ Your response:
 
 class ChatSession:
 
-    def __init__(self):
+    def __init__(self, model="gpt-4o-mini"):
         """Initialize chat session with database connection and required components."""
         try:
             self.conn, self.cur = initialize_db()
@@ -59,9 +59,9 @@ class ChatSession:
             self.rag_data_io = RAGDataIO(connection=self.conn,
                                         cursor=self.cur,
                                         top_k=10)
-            self.llm = ChatOpenAI(model="gpt-4o-mini", max_retries=2)
+            self.llm = ChatOpenAI(model=model, max_retries=2)
             self.chat_history = []
-            self.encoding = tiktoken.encoding_for_model("gpt-4o-mini")
+            self.encoding = tiktoken.encoding_for_model(model)
             self.load_db()  # Move this after RAGDataIO initialization
         except Exception as e:
             print(f"Error initializing ChatSession: {e}")
@@ -87,6 +87,10 @@ class ChatSession:
         except Exception as e:
             print(f"Error in load_db: {e}")
             raise
+    
+    def change_model(self, model):
+        self.llm = ChatOpenAI(model=model, max_retries=2)
+        self.encoding = tiktoken.encoding_for_model(model)
 
     def add_message(self, message):
         self.cur.execute(

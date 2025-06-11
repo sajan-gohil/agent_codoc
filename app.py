@@ -7,8 +7,37 @@ import tiktoken
 from dotenv import load_dotenv
 from agent_codoc.chat_session import ChatSession
 from agent_codoc.util_data.code_languages import CODE_LANGUAGES
+import os
+from openai import OpenAI
+from openai.types.chat import ChatCompletion
 
 load_dotenv()
+
+# Available OpenAI models
+OPENAI_MODELS = [
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-3.5-turbo",
+    "gpt-4",
+    "gpt-4-turbo-preview",
+    "o3-mini",
+    "o4-mini"
+]
+
+def validate_api_key(api_key: str) -> bool:
+    """Test if the provided API key is valid by making a simple request."""
+    try:
+        client = OpenAI(api_key=api_key)
+        # Make a minimal request to test the key
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "test"}],
+            max_tokens=5
+        )
+        return isinstance(response, ChatCompletion)
+    except Exception as e:
+        st.error(f"Invalid API key: {str(e)}")
+        return False
 
 def add_message(user_input, bot_response):
     """Add a message to the chat history"""
@@ -154,6 +183,58 @@ if "is_busy" not in st.session_state:
     st.session_state["is_busy"] = False
 
 st.title("LLM Chat Interface")
+
+# Add model selection dropdown
+selected_model = st.selectbox(
+    "Select Model",
+    options=OPENAI_MODELS,
+    index=0,  # Default to gpt-4o-mini
+    key="model_selector"
+)
+
+# Add API key input
+api_key = st.text_input(
+    "OpenAI API Key",
+    type="password",
+    help="Enter your OpenAI API key. Required when changing models.",
+    key="api_key_input"
+)
+
+# Handle API key and model changes
+if "current_model" not in st.session_state:
+    st.session_state.current_model = selected_model
+
+# If API key is provided, validate and set it as environment variable
+if api_key:
+    if validate_api_key(api_key):
+        os.environ["OPENAI_API_KEY"] = api_key
+        if "current_api_key" not in st.session_state or st.session_state.current_api_key != api_key:
+            st.session_state.current_api_key = api_key
+            st.success("API key validated and updated successfully")
+    else:
+        # Reset to default model if API key is invalid
+        st.session_state.model_selector = "gpt-4o-mini"
+        st.session_state.current_model = "gpt-4o-mini"
+        if "current_api_key" in st.session_state:
+            del st.session_state.current_api_key
+        st.error("Invalid API key. Model reset to default.")
+
+# Handle model change
+if st.session_state.current_model != selected_model:
+    if not api_key:
+        st.error("Please provide an OpenAI API key to change the model")
+        # Reset the model selector to the previous value
+        st.session_state.model_selector = st.session_state.current_model
+    else:
+        if validate_api_key(api_key):
+            st.session_state.chat_session.change_model(selected_model)
+            st.session_state.current_model = selected_model
+            st.success(f"Model changed to {selected_model}")
+        else:
+            # Reset to default model if API key is invalid
+            st.session_state.model_selector = "gpt-4o-mini"
+            st.session_state.current_model = "gpt-4o-mini"
+            st.error("Invalid API key. Model reset to default.")
 
 st.write("### Add Documentation from URL")
 doc_url = st.text_input("Enter documentation URL (Markdown or Text):", key="doc_url_input")
