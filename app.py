@@ -210,6 +210,9 @@ if st.session_state["is_busy"] and len(st.session_state.messages
     with st.spinner("Fetching Info..."):
         (bot_response, context_docs, qa_context_docs
          ) = st.session_state.chat_session.process_message(user_message)
+    
+    with st.spinner("Evaluating code..."):
+        code_eval = st.session_state.chat_session.evaluate_code(bot_response, user_message)
 
     # Add some context with the response if there is code in the response
     if bot_response.count("```") > 1:

@@ -1,10 +1,12 @@
 import datetime
+import traceback
 import uuid
 import tiktoken
 from agent_codoc.db_setup import initialize_db
 from agent_codoc.rag_data_io import RAGDataIO
 from langchain.schema.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+import requests
 
 BASE_PROMPT = """
 You are a customer support specialist for Crustdata's APIs. Your responses should be clear, accurate, and focused and should provide information from the context provided.
@@ -40,6 +42,7 @@ Please provide a helpful response that:
 4. Is concise and clear
 5. Maintains a professional and courteous tone
 6. The question is always related to the Crustdata API.
+7. For any code generated, write the ouput in a json file.
 
 If any question asked seems like it is not related to crustdata API, please mention that the question is not related to the API and ask the user to provide more context or rephrase the question.
 
@@ -139,3 +142,73 @@ class ChatSession:
         self.cur.execute("INSERT INTO rag_database (data) VALUES (?)",
                          (data, ))
         self.conn.commit()
+
+    def evaluate_generated_code(self, code: str):
+        """Evaluate the generated code, ensuring any HTTP requests return a 2xx response."""
+        try:
+            # Intercept and execute the code
+            exec_globals = {"requests": requests}
+            exec_locals = {}
+
+            exec(code, exec_globals, exec_locals)
+
+            # Check for HTTP requests
+            request_responses = [
+                value for value in exec_locals.values()
+                if isinstance(value, requests.Response)
+            ]
+
+            # Verify that all HTTP responses return a 2xx status code
+            for response in request_responses:
+                if not (200 <= response.status_code < 300):
+                    raise Exception(
+                        f"HTTP request failed with status code {response.status_code}: {response.text}"
+                    )
+
+            return "Code executed successfully with valid HTTP responses!", None
+
+        except Exception as e:
+            error_traceback = traceback.format_exc()
+            return None, error_traceback
+
+    def retry_with_error_context(self, code: str, error: str,
+                                 user_message: str):
+        """Send code and error context back to the LLM for correction."""
+        correction_prompt = f"""
+        The user provided the following task:
+        {user_message}
+
+        Your initial code response was:
+        {code}chat_session
+
+        However, it failed with the following error:
+        {error}
+
+        Please rewrite the code to fix the issue and ensure all HTTP requests return a 2xx status code.
+        """
+        return self.get_chat_response(question=correction_prompt)
+
+    def handle_code_response(self, user_message: str, code: str):
+        """Evaluate and retry code responses from the LLM."""
+        success_message, error_message = self.evaluate_generated_code(code)
+        if success_message:
+            return success_message
+        else:
+            corrected_code = self.retry_with_error_context(
+                code=code, error=error_message, user_message=user_message)
+            return corrected_code
+
+    def evaluate_code(self, response, user_message):
+        generated_code = self.extract_code_from_response(
+            response)  # Extract code block from response
+        final_response = self.handle_code_response(user_message,
+                                                        generated_code)
+        print(final_response)
+
+    def extract_code_from_response(self, response):
+        """Extract code block from the LLM response."""
+        code_block = response.split("```")
+        if len(code_block) > 1:
+            return code_block[1]
+        else:
+            return None
