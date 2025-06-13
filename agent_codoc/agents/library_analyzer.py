@@ -1,10 +1,11 @@
 from typing import List, Dict, Optional, Tuple
 import re
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import requests
 from bs4 import BeautifulSoup
 import json
 import time
+import traceback
 from langchain_openai import ChatOpenAI
 from langchain.tools import Tool, tool
 from langchain.agents import AgentExecutor, create_openai_tools_agent
@@ -13,17 +14,26 @@ from langchain.schema import SystemMessage
 
 
 class LibraryInfo(BaseModel):
-    name: str
-    version: Optional[str] = None
-    is_niche: bool = False
-    popularity_score: Optional[float] = None
-    documentation_url: Optional[str] = None
+    name: str = Field(description="The name of the library or API")
+    version: Optional[str] = Field(
+        default=None,
+        description="Version number if mentioned (e.g., '2.1.0', 'v3.2')")
+    is_niche: bool = Field(
+        default=False,
+        description=
+        "True if this is a specialized/niche library, False if it's mainstream"
+    )
+    popularity_score: Optional[float] = Field(
+        default=None,
+        description="Estimated popularity score from 0.0 to 1.0 if determinable"
+    )
+    documentation_url: Optional[str] = Field(
+        default=None,
+        description="Official documentation URL if mentioned or well-known")
 
 
-@tool
-def detect_libraries(input: str) -> List[LibraryInfo]:
-    """Detects libraries/APIs mentioned in the input and returns their structured metadata."""
-    pass  # The model simulates this
+class LibraryDetectionResponse(BaseModel):
+    libraries: List[LibraryInfo]
 
 
 system_message = SystemMessage(content="""You are a library detection agent.
@@ -74,13 +84,9 @@ class LibraryAnalyzer:
                 system_message,
                 ("human", "{input}"),
             ])
-            response = self.llm.invoke_with_functions(prompt.format_messages(input=text),
-                                                      functions=[detect_libraries])
-            if len(response.additional_kwargs.get("tool_calls", [])) > 0:
-                tool_call = response.additional_kwargs["tool_calls"][0]
-                arguments = tool_call["function"]["arguments"]
-                args_dict = json.loads(arguments)
-                libraries = [LibraryInfo(**item) for item in args_dict]
+            response = self.llm.with_structured_output(LibraryDetectionResponse).invoke(
+                prompt.format_messages(input=text))
+            libraries = response.libraries
             return libraries
         except Exception as e:
             print(f"Error in LLM library detection: {e}")

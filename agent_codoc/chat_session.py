@@ -226,7 +226,7 @@ class ChatSession:
             response)  # Extract code block from response
         final_response = self.handle_code_response(user_message,
                                                         generated_code)
-        print(final_response)
+        # print(final_response)
 
     def extract_code_from_response(self, response):
         """Extract code block from the LLM response."""

@@ -64,7 +64,7 @@ class DocSearchAgent:
         ])
         structured_llm = self.llm.with_structured_output(SearchQuery)
         search_query = structured_llm.invoke(prompt.format_messages(input=text))
-        print("search_query = ", search_query.search_query)
+        # print("search_query = ", search_query.search_query)
         return search_query.search_query
     
     def search_documentation(self, question: str, library_reference: str) -> List[str]:
