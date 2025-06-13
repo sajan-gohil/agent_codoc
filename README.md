@@ -1,49 +1,40 @@
-# LLM Chat Interface for API Documentation
+# AgentCoDoc: Make LLMs understand *YOUR* documentation
 
 ## Overview
+Sometimes, LLMs don't really know what they are talking about. For LLM generated code, one of the big issue is that it hallucinates what library exists and which method is available.
+Changes in different versions of the library you are using also makes things difficult. If the library or package is an internal one, forget any help without a RAG system.
 
-Navigating the often vast and intricate documentation for APIs that serve large datasets—such as those from OpenStreetMap, public government data portals, or extensive scientific data repositories—can be a significant challenge. This project introduces a Streamlit-based LLM (Large Language Model) chat interface specifically designed to simplify this process. By leveraging a Retrieval Augmented Generation (RAG) approach, the application provides users with an intuitive way to ask questions and receive contextually relevant answers directly from the API documentation. Users can interactively explore API functionalities, understand complex endpoints, and clarify usage details for even the most comprehensive data services. The application further streamlines documentation management by allowing new API documents to be added dynamically from URLs, including intelligent parsing of `README.md` files from GitHub repositories, making it easier to keep the knowledge base current.
+**AgentCoDoc** aims to fill this gap. It’s an agentic Retrieval-Augmented Generation (RAG) system designed to dynamically ingest, parse, and contextualize niche or internal documentation—enabling more accurate and relevant LLM responses in developer-facing chat interfaces.
+
+Use case: Internal teams working with proprietary SDKs, under-documented OSS tools, or edge-case libraries can leverage AgentCoDoc to enhance their dev assistants or chatbots, ensuring the model is grounded in the exact technical knowledge it needs.
+
 
 ## Live Demo
 The LLM chat Interface app can be directly accessed at https://agentcodoc.streamlit.app/
+
 ## Features
 
-- **Interactive Chat Interface**: Users can ask questions in natural language about the API.
 - **Retrieval Augmented Generation (RAG)**:
     - Utilizes a vector database (SQLite with `SQLiteVec`) to store and search API documentation.
     - Embeddings are generated using OpenAI's `text-embedding-3-small` model.
-    - Processes and chunks Markdown and text documents for efficient retrieval.
+    - Processes and chunks documents for retrieval.
+    - The LLM verifies if the retrieved context is actually relevant to the query and filters out bad matches.
 - **Dynamic Documentation Ingestion**:
-    - Add API documentation from local files (`.md`, `.txt`) during initialization.
+    - Add API documentation from local files (`.md`, `.txt`, `.pdf`) during initialization.
     - Add documentation from URLs.
     - Automatically detects GitHub repository URLs and attempts to parse and ingest their `README.md` file.
-- **Chat History**: Stores and displays the conversation history for the current session.
-- **Contextual Responses**: The LLM (powered by `gpt-4o-mini`) uses chat history, relevant Q&A from previous chats (if implemented), and documentation snippets to formulate answers.
-- **Streamlit UI**: A user-friendly web interface built with Streamlit.
+    - An identifier agent tries to identify if a niche library is mentioned in the query or if it might be used. A search agent then retrieves best matching web-pages which are retrieved and stored.
 
-## Project Structure
+## Under the hood
 
-```
-.
-├── agent_codoc/            # Core logic for the agent and RAG system
-│   ├── __init__.py
-│   ├── chat_session.py     # Manages chat sessions, LLM interaction, and RAG querying
-│   ├── db_setup.py         # Handles SQLite database initialization and schema
-│   ├── rag_data_io.py      # Manages reading, processing, and storing documentation for RAG
-│   └── util_data/          # Utility data (e.g., code languages for formatting)
-│       └── code_languages.py
-├── data/                   # Directory for storing local API documentation files
-│   ├── crustdata_detailed_examples.md
-│   ├── docs_crustdata.md
-│   └── ... (other .md or .txt files)
-├── .git/                   # Git repository files
-├── .gitignore              # Specifies intentionally untracked files that Git should ignore
-├── app.py                  # Main Streamlit application file
-├── chat_sessions.db        # SQLite database for chat sessions and RAG data
-├── poetry.lock             # Poetry dependency lock file
-├── pyproject.toml          # Poetry project configuration and dependencies
-└── README.md               # This file
-```
+Key Python libraries used:
+-   `streamlit`: For building the web interface.
+-   `langchain`, `langgraph` and related packages: For LLM integration, RAG, and text processing.
+-   `sqlite-vec`: For SQLite-based local vector storage.
+
+### The Agentic flow
+![image](image/langgraph_graph.png)
+
 
 ## Setup and Installation
 
@@ -61,55 +52,48 @@ The LLM chat Interface app can be directly accessed at https://agentcodoc.stream
     If you don't have Poetry, you can install it by following the instructions on the [official Poetry website](https://python-poetry.org/docs/#installation).
 
 3.  **Set up Environment Variables:**
-    The application uses OpenAI models. You'll need an OpenAI API key. Create a `.env` file in the project root and add your API key:
+    Create a `.env` file in the project root and add your API key: 
     ```
-    OPENAI_API_KEY='your_openai_api_key_here'
+    OPENAI_API_KEY='your_openai_api_key_here'  # Required, OpenAI LLMs are used
+    LANGSMITH_API_KEY='api_key_from_langchain'  # Optional, for langsmith
+    LANGCHAIN_TRACING_V2=true
+    TAVILY_API_KEY='tavily_search_api'  # Required, for search agent
     ```
 
 4.  **Prepare Documentation (Optional):**
     Place your API documentation files (Markdown or text) in the `data/` directory. The application will automatically process these on first run if the database is empty.
 
-## Dependencies
-
-Key Python libraries used:
-
--   `streamlit`: For building the web interface.
--   `langchain`, `langchain-openai`, `langchain-community`: For LLM integration, RAG, and text processing.
--   `tiktoken`: For token counting.
--   `requests`: For fetching documents from URLs.
--   `beautifulsoup4`: For parsing HTML from URLs.
--   `sqlite-vec`: For SQLite-based vector storage.
--   `poetry`: For dependency management.
-
-Refer to `pyproject.toml` for a full list of dependencies and their versions.
 
 ## How to Run
 
 Once dependencies are installed and your `.env` file is set up, run the Streamlit application from the project root directory:
 
 ```bash
-poetry run streamlit run app.py
+streamlit run app.py
 ```
 
 This will start the Streamlit server, and you can access the application in your web browser (usually at `http://localhost:8501`).
 
+```bash
+langgraph dev
+```
+This will start the langsmith api and the portal on which the graph execution and past traces can be viewed. (Optional)
+
 ## Usage
 
 1.  **Adding Documentation (Optional):**
-    -   The application will attempt to load any `.md` or `.txt` files from the `./data/` directory upon initialization if the documentation store is empty.
-    -   Use the "Add Documentation from URL" feature in the UI to add documents from a web link.
+    -   The application will attempt to load any new `.md`, `.txt` or `.pdf` files from the `data/` directory (at the highest level) upon initialization.
+    -   Upload a markdown, text or pdf file from the UI.
+    -   Use the "Add Documentation from URL" feature in the UI to add a web page as documentation.
         -   If you provide a link to a GitHub repository, it will attempt to find and add the `README.md` file.
         -   Direct links to Markdown or text files are also supported.
 
 2.  **Chatting with the API Assistant:**
-    -   Type your questions about the API into the chat input box at the bottom of the page.
-    -   The assistant will use the loaded documentation and its LLM capabilities to provide an answer.
-    -   The chat history is displayed in the main panel.
+    -   The library analysis agent will first identify if any niche libraries are mentioned in the query. If found, the web search agent will try to find documentation sources, and these will be added as documentation if not already existing.
+    
 
-## Future Enhancements / TODOs (Example)
+## TODOs
 
--   Implement a more robust Q&A context retrieval from past chats.
--   Support for more document types (e.g., PDF, JSON).
--   User authentication and multi-user session management.
--   More sophisticated error handling and logging.
--   UI/UX improvements.
+-   Automated system tests
+-   Add MCP server for integration with IDE copilots.
+-   Verify already loaded documentation after analyzing query and before loading from web search agent.

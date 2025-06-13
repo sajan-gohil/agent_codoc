@@ -5,7 +5,7 @@ import tiktoken
 import requests
 import bs4
 import re
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import SQLiteVec
 from langchain.text_splitter import (
@@ -13,6 +13,7 @@ from langchain.text_splitter import (
     MarkdownTextSplitter,
     RecursiveCharacterTextSplitter,
 )
+from sqlite_utils_sqlite_vec import sqlite_vec
 
 
 class RAGDataIO:
@@ -52,9 +53,10 @@ class RAGDataIO:
                         metadata = eval(row[0])  # Safely convert string to dict
                         if 'source' in metadata:
                             processed_docs.add(metadata['source'])
-            except sqlite3.OperationalError:
+            except sqlite3.OperationalError as e:
                 # Table might not exist yet
-                pass
+                print("Exception in initializing database:", e)
+                traceback.print_exc()
 
             # Process only new documents
             try:
@@ -64,9 +66,11 @@ class RAGDataIO:
                         continue
                     
                     if doc.endswith(".md"):
-                        self.add_markdown_document(doc_path)
+                        self.add_markdown_document(doc_path=doc_path)
                     elif doc.endswith(".txt"):
-                        self.add_text_document(doc_path)
+                        self.add_text_document(doc_path=doc_path)
+                    elif doc.endswith(".pdf"):
+                        self.add_pdf_document(doc_path=doc_path)
             except Exception as e:
                 print(f"Error processing documents: {e}")
                 traceback.print_exc()
@@ -75,7 +79,9 @@ class RAGDataIO:
             print(f"Error initializing documents to database: {e}")
             traceback.print_exc()
 
-    def add_markdown_document(self, doc_path) -> None:
+    def add_markdown_document(self,
+                              doc_path: Optional[str] = None,
+                              text: Optional[str] = None) -> None:
         headers_to_split_on = [
             ("#", "Header 1"),
             ("##", "Header 2"),
@@ -84,49 +90,70 @@ class RAGDataIO:
             ("#####", "Header 5"),
             ("######", "Header 6"),
         ]
-        with open(doc_path, 'r') as f:
-            text = f.read()
-            documents = MarkdownHeaderTextSplitter(
-                headers_to_split_on).split_text(text)
-            texts = []
-            metadatas = []
-            for document in documents:
-                # Check number of tokens of text
-                doc_text = document.page_content
-                num_tokens = len(self.encoding.encode(doc_text))
-                if num_tokens > 8192:
-                    # Split the text into smaller chunks
-                    text_chunks = MarkdownTextSplitter(chunk_size=4096).split_text(doc_text)
-                    for text_chunk in text_chunks:
-                        text_chunk = "\n".join(document.metadata.values()) + "\n" + text_chunk
-                        texts.append(text_chunk)
-                        metadatas.append(document.metadata)
-                else:
-                    doc_text = "\n".join(document.metadata.values()) + "\n" + doc_text
-                    texts.append(doc_text)
+        if doc_path is not None:
+            with open(doc_path, 'r') as f:
+                text = f.read()
+        documents = MarkdownHeaderTextSplitter(headers_to_split_on).split_text(text)
+        texts, metadatas = [], []
+        for document in documents:
+            # Check number of tokens of text
+            doc_text = document.page_content
+            num_tokens = len(self.encoding.encode(doc_text))
+            if num_tokens > 8192:
+                # Split the text into smaller chunks
+                text_chunks = MarkdownTextSplitter(chunk_size=4096).split_text(doc_text)
+                for text_chunk in text_chunks:
+                    text_chunk = "\n".join(document.metadata.values()) + "\n" + text_chunk
+                    texts.append(text_chunk)
                     metadatas.append(document.metadata)
-            self.add_documents(texts, metadatas)
+            else:
+                doc_text = "\n".join(document.metadata.values()) + "\n" + doc_text
+                texts.append(doc_text)
+                metadatas.append(document.metadata)
+        self.add_documents(texts, metadatas)
 
-    def add_text_document(self, doc_path) -> None:
-        with open(doc_path, 'r') as f:
-            text = f.read()
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=4096,
-                chunk_overlap=50,
-                length_function=len,
-                is_separator_regex=False
-            )
-            documents = splitter.split_text(text)
-            texts = []
-            for chunk in documents:  # chunk is a string
-                texts.append(chunk)
-            self.add_documents(texts)
+    def add_text_document(self,
+                          doc_path: Optional[str] = None,
+                          text: Optional[str] = None) -> None:
+        if doc_path is not None:
+            with open(doc_path, 'r') as f:
+                text = f.read()
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=4096,
+            chunk_overlap=50,
+            length_function=len,
+            is_separator_regex=False
+        )
+        documents = splitter.split_text(text)
+        texts = []
+        texts = [chunk for chunk in documents]  # Each chunk is a string
+        self.add_documents(texts)
 
-    def add_pdf_document(self, doc_path):
-        pass
+    def add_pdf_document(self,
+                         doc_path: Optional[str] = None,
+                         text: Optional[str] = None) -> None:
+        """Add a PDF document's text content to the database."""
+        if doc_path is not None:
+            try:
+                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                file_content = ""
+                for page in pdf_reader.pages:
+                    file_content += page.extract_text() + "\n\n\n"
+            except Exception as e:
+                st.error(f"Failed to read PDF file: {e}")
+                st.stop()
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=4096,
+            chunk_overlap=50,
+            length_function=len,
+            is_separator_regex=False
+        )
+        documents = splitter.split_text(text)
+        texts = [chunk for chunk in documents]  # Each chunk is a string
+        self.add_documents(texts)
 
     def add_json_document(self, doc_path):
-        pass
+        raise NotImplementedError()
 
     def add_url_document(self, url: str) -> None:
         """Fetch a document from a URL and add it to the database.
@@ -163,7 +190,7 @@ class RAGDataIO:
                             content_type = response.headers.get('Content-Type', '')
                             if 'text/plain' in content_type or readme_url.endswith('.md'): # raw.githubusercontent serves md as text/plain
                                 print(f"Successfully fetched README.md from {readme_url}")
-                                self.add_markdown_document_from_text(response.text)
+                                self.add_markdown_document(text=response.text)
                                 return # Successfully processed README, so exit
                             else:
                                 print(f"README found at {readme_url} but content type is not plain text or markdown: {content_type}")
@@ -184,9 +211,9 @@ class RAGDataIO:
             content_type = response.headers.get('Content-Type', '')
             if url.endswith('.md') or 'markdown' in content_type:
                 # Save to temp file and reuse markdown logic
-                self.add_markdown_document_from_text(response.text)
+                self.add_markdown_document(text=response.text)
             elif url.endswith('.txt') or 'text/plain' in content_type:
-                self.add_text_document_from_text(response.text)
+                self.add_text_document(text=response.text)
             else:
                 # For other types (e.g., HTML), extract visible text from the webpage
                 soup = bs4.BeautifulSoup(response.text, "html.parser")
@@ -197,55 +224,30 @@ class RAGDataIO:
                 # Clean up the text
                 lines = [line.strip() for line in text.splitlines()]
                 text = "\n".join(line for line in lines if line)
-                self.add_text_document_from_text(text)
+                self.add_text_document(text=text)
+                
         except requests.exceptions.RequestException as e:
             print(f"Failed to fetch document from URL: {url}\nError: {e}")
-            raise RuntimeError(f"Failed to fetch document from URL: {url}. Please check the URL and your network connection.") from e
+            raise RuntimeError(
+                f"Failed to fetch document from URL: {url}. Please check the URL and your network connection."
+            ) from e
         except Exception as e:
             print(f"Failed to add document from URL: {url}\nError: {e}")
             # traceback.print_exc() # Optionally, uncomment for more detailed logs in terminal
-            raise RuntimeError(f"Failed to process or add document content from URL: {url}. The document format might be unsupported or corrupted.") from e
-
-    def add_markdown_document_from_text(self, text: str) -> None:
-        headers_to_split_on = [
-            ("#", "Header 1"),
-            ("##", "Header 2"),
-            ("###", "Header 3"),
-            ("####", "Header 4"),
-            ("#####", "Header 5"),
-            ("######", "Header 6"),
-        ]
-        documents = MarkdownHeaderTextSplitter(headers_to_split_on).split_text(text)
-        texts, metadatas = [], []
-        for document in documents:
-            doc_text = document.page_content
-            num_tokens = len(self.encoding.encode(doc_text))
-            if num_tokens > 8192:
-                text_chunks = MarkdownTextSplitter(chunk_size=4096).split_text(doc_text)
-                for text_chunk in text_chunks:
-                    text_chunk = "\n".join(document.metadata.values()) + "\n" + text_chunk
-                    texts.append(text_chunk)
-                    metadatas.append(document.metadata)
-            else:
-                doc_text = "\n".join(document.metadata.values()) + "\n" + doc_text
-                texts.append(doc_text)
-                metadatas.append(document.metadata)
-        self.add_documents(texts, metadatas)
-
-    def add_text_document_from_text(self, text: str) -> None:
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=4096,
-            chunk_overlap=50,
-            length_function=len,
-            is_separator_regex=False
-        )
-        documents = splitter.split_text(text)
-        texts = [chunk for chunk in documents]  # Each chunk is a string
-        self.add_documents(texts)
+            raise RuntimeError(
+                f"Failed to process or add document content from URL: {url}. The document format might be unsupported or corrupted."
+            ) from e
 
     def add_documents(self, texts: List[str], metadatas: dict = None):
         """Add a new document and its embedding to the database."""
-        self.documentation_store.add_texts(texts, metadatas)
+        # Check for duplicates before adding
+        for text_idx, text in enumerate(texts):
+            # Check if exact text already exists
+            self.cur.execute("SELECT rowid FROM rag_documentation_database WHERE text = ?", (text,))
+            if self.cur.fetchone() is not None:
+                print(f"Skipping duplicate text chunk")
+                continue
+            self.documentation_store.add_texts([text], metadatas)
 
     def search_similar(self, query: str):
         """Search for the most similar documents to the query."""
