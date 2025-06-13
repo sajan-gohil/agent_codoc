@@ -8,6 +8,8 @@ from agent_codoc.db_setup import initialize_db
 from agent_codoc.rag_data_io import RAGDataIO
 from agent_codoc.chat_session import ChatSession
 import json
+import traceback
+
 
 # Define the state types
 class AgentState(TypedDict):
@@ -66,13 +68,15 @@ def create_workflow_graph(
     
     def get_rag_context(state: AgentState) -> AgentState:
         """Get context from RAG system."""
-        print(state)
-        question = state["question"]
-        context_docs, context, qa_context_docs, qa_context = chat_session.get_message_context(question)
-        return {
-            "context": context,
-            "qa_context": qa_context
-        }
+        try:
+            question = state["question"]
+            context_docs, context, qa_context_docs, qa_context = chat_session.get_message_context(question)
+            return {
+                "context": context,
+                "qa_context": qa_context
+            }
+        except:
+            traceback.print_exc()
     
     def generate_response(state: AgentState) -> AgentState:
         """Generate response using the chat session."""

@@ -2,6 +2,7 @@ import datetime
 import traceback
 import uuid
 import tiktoken
+import PyPDF2
 from agent_codoc.db_setup import initialize_db
 from agent_codoc.rag_data_io import RAGDataIO
 from langchain.schema.messages import AIMessage, HumanMessage
@@ -38,11 +39,12 @@ Latest user question:
 =================================================================================
 Please provide a helpful response that:
 1. Directly addresses the user's question
-2. Uses the relevant documentation context
+2. Uses the relevant documentation context if it is relevant
 3. Includes code examples only when appropriate.
 4. Is concise and clear
 5. Maintains a professional and courteous tone
 6. For any code generated, write the ouput in a json file.
+7. Ignores the context if it is irrelevant
 
 
 Your response:
@@ -60,7 +62,7 @@ class ChatSession:
             self.rag_data_io = RAGDataIO(connection=self.conn,
                                         cursor=self.cur,
                                         top_k=10)
-            self.llm = ChatOpenAI(model=model, max_retries=2)
+            self.llm = ChatOpenAI(model=model, max_retries=2, temperature=0)
             self.chat_history = []
             self.encoding = tiktoken.encoding_for_model(model)
             self.library_analyzer = LibraryAnalyzer()
@@ -172,7 +174,6 @@ class ChatSession:
             # Intercept and execute the code
             exec_globals = {"requests": requests}
             exec_locals = {}
-
             exec(code, exec_globals, exec_locals)
 
             # Check for HTTP requests
@@ -180,7 +181,6 @@ class ChatSession:
                 value for value in exec_locals.values()
                 if isinstance(value, requests.Response)
             ]
-
             # Verify that all HTTP responses return a 2xx status code
             for response in request_responses:
                 if not (200 <= response.status_code < 300):
@@ -202,7 +202,7 @@ class ChatSession:
         {user_message}
 
         Your initial code response was:
-        {code}chat_session
+        {code}
 
         However, it failed with the following error:
         {error}

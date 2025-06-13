@@ -10,6 +10,7 @@ from agent_codoc.util_data.code_languages import CODE_LANGUAGES
 import os
 from openai import OpenAI
 from openai.types.chat import ChatCompletion
+import PyPDF2
 
 load_dotenv()
 
@@ -187,7 +188,6 @@ st.title("LLM Chat Interface")
 # Create sidebar for model selection and API key
 with st.sidebar:
     st.write("### Settings")
-    
     # Initialize session state variables if they don't exist
     if "current_model" not in st.session_state:
         st.session_state.current_model = "gpt-4o-mini"
@@ -196,7 +196,7 @@ with st.sidebar:
 
     # Add API key input
     api_key = st.text_input(
-        "OpenAI API Key",
+        "OpenAI API Key (Not necessary for current model)",
         type="password",
         help="Enter your OpenAI API key. Required when changing models.",
         key="api_key_input"
@@ -219,13 +219,13 @@ with st.sidebar:
                 st.success("API key validated and updated successfully")
         else:
             st.error("Invalid API key")
-            st.stop()
+            # st.stop()
 
     # Handle model change
     if selected_model != st.session_state.current_model:
         if not api_key:
             st.error("Please provide an OpenAI API key to change the model")
-            st.stop()
+            # st.stop()
         else:
             if validate_api_key(api_key):
                 st.session_state.chat_session.change_model(selected_model)
@@ -233,25 +233,31 @@ with st.sidebar:
                 st.success(f"Model changed to {selected_model}")
             else:
                 st.error("Invalid API key")
-                st.stop()
+                st.session_state.current_model = st.session_state.current_model
+                # st.stop()
 
-st.write("### Add Documentation from URL")
-doc_url = st.text_input("Enter documentation URL (Markdown or Text):", key="doc_url_input")
-if st.button("Add Documentation from URL"):
-    if doc_url:
-        with st.spinner("Adding document..."):
-            try:
-                st.session_state.chat_session.rag_data_io.add_url_document(doc_url)
-                st.success("Document added successfully from URL!")
-            except RuntimeError as e:
-                st.error(f"Failed to add document: {e}")
-            except Exception as e:
-                st.error(f"An unexpected error occurred: {e}")
-    else:
-        st.warning("Please enter a valid URL.")
+    st.divider()
+    st.write("### Add New Documentation from URL")
+    doc_url = st.text_input("Enter documentation or github URL:", key="doc_url_input")
+    if st.button("Add Documentation from URL"):
+        if doc_url:
+            with st.spinner("Adding document..."):
+                try:
+                    st.session_state.chat_session.rag_data_io.add_url_document(doc_url)
+                    st.success("Document added successfully from URL!")
+                except RuntimeError as e:
+                    st.error(f"Failed to add document: {e}")
+                except Exception as e:
+                    st.error(f"An unexpected error occurred: {e}")
+        else:
+            st.warning("Please enter a valid URL.")
 
-st.write("### Add Documentation from File")
-uploaded_file = st.file_uploader("Upload documentation file", type=['txt', 'md', 'pdf'], key="file_uploader")
+    st.divider()
+    st.write("### Add New Documentation from File")
+    uploaded_file = st.file_uploader("Upload documentation file",
+                                     type=['txt', 'md', 'pdf'],
+                                     key="file_uploader")
+
 if uploaded_file is not None:
     # Read file content
     file_content = uploaded_file.read()
@@ -259,11 +265,10 @@ if uploaded_file is not None:
     # For PDF files, we need to convert to text
     if uploaded_file.type == "application/pdf":
         try:
-            import PyPDF2
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
             file_content = ""
             for page in pdf_reader.pages:
-                file_content += page.extract_text()
+                file_content += page.extract_text() + "\n\n\n"
         except Exception as e:
             st.error(f"Failed to read PDF file: {e}")
             st.stop()
@@ -347,13 +352,13 @@ if st.session_state["is_busy"] and len(st.session_state.messages
         (bot_response, context_docs, qa_context_docs
          ) = st.session_state.chat_session.process_message(user_message)
     
-    with st.spinner("Evaluating code..."):
-        code_eval = st.session_state.chat_session.evaluate_code(bot_response, user_message)
+    # with st.spinner("Evaluating code..."):
+    #     code_eval = st.session_state.chat_session.evaluate_code(bot_response, user_message)
 
-    # # Add some context with the response if there is code in the response
+    # Add some context with the response if there is code in the response
     # if bot_response.count("```") > 1:
     #     bot_response += "\n\n" + "= "*30 + "\n\n## **Some relevant snippets from the documentation which might help:**\n"
-    #     for doc_index, doc in enumerate(context_docs[:2], 1):
+    #     for doc_index, doc in enumerate(context_docs[:1], 1):
     #         bot_response += "\n\n" + "- " * 30 + "\n\n**Snippet " + str(doc_index) + ":**\n"
     #         bot_response += f"\n{doc}"
 
