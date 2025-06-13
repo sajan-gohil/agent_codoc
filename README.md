@@ -1,4 +1,4 @@
-# AgentCoDoc: An agentic RAG system to enrich LLM context with code documentation of niche libraries/APIs
+# AgentCoDoc: Make LLMs understand *YOUR* documentation
 
 ## Overview
 Sometimes, LLMs don't really know what they are talking about. For LLM generated code, one of the big issue is that it hallucinates what library exists and which method is available.
@@ -24,6 +24,17 @@ The LLM chat Interface app can be directly accessed at https://agentcodoc.stream
     - Add documentation from URLs.
     - Automatically detects GitHub repository URLs and attempts to parse and ingest their `README.md` file.
     - An identifier agent tries to identify if a niche library is mentioned in the query or if it might be used. A search agent then retrieves best matching web-pages which are retrieved and stored.
+
+## Under the hood
+
+Key Python libraries used:
+-   `streamlit`: For building the web interface.
+-   `langchain`, `langgraph` and related packages: For LLM integration, RAG, and text processing.
+-   `sqlite-vec`: For SQLite-based local vector storage.
+
+### The Agentic flow
+![image](image/langgraph_graph.png)
+
 
 ## Setup and Installation
 
@@ -52,20 +63,6 @@ The LLM chat Interface app can be directly accessed at https://agentcodoc.stream
 4.  **Prepare Documentation (Optional):**
     Place your API documentation files (Markdown or text) in the `data/` directory. The application will automatically process these on first run if the database is empty.
 
-## Dependencies
-
-Key Python libraries used:
-
--   `streamlit`: For building the web interface.
--   `langchain`, `langgraph` and related packages: For LLM integration, RAG, and text processing.
--   `sqlite-vec`: For SQLite-based local vector storage.
-
-Refer to `pyproject.toml` for a full list of dependencies and their versions.
-
-Install dependencies:
-```bash
-poetry install
-```
 
 ## How to Run
 
@@ -85,7 +82,7 @@ This will start the langsmith api and the portal on which the graph execution an
 ## Usage
 
 1.  **Adding Documentation (Optional):**
-    -   The application will attempt to load any new `.md`, `.txt` or `.pdf` files from the `./data/` directory upon initialization.
+    -   The application will attempt to load any new `.md`, `.txt` or `.pdf` files from the `data/` directory (at the highest level) upon initialization.
     -   Upload a markdown, text or pdf file from the UI.
     -   Use the "Add Documentation from URL" feature in the UI to add a web page as documentation.
         -   If you provide a link to a GitHub repository, it will attempt to find and add the `README.md` file.
