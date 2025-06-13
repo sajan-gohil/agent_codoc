@@ -97,3 +97,7 @@ This will start the langsmith api and the portal on which the graph execution an
 -   Automated system tests
 -   Add MCP server for integration with IDE copilots.
 -   Verify already loaded documentation after analyzing query and before loading from web search agent.
+
+
+## Limitations
+- If the library is obscure enough, it is less likely to be returned by web search, in which case, manual URL/docs addition will be required.
