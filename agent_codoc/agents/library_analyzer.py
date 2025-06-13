@@ -1,23 +1,43 @@
 from typing import List, Dict, Optional, Tuple
 import re
-from dataclasses import dataclass
+from pydantic import BaseModel
 import requests
 from bs4 import BeautifulSoup
 import json
 import time
 from langchain_openai import ChatOpenAI
-from langchain.tools import Tool
+from langchain.tools import Tool, tool
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import SystemMessage
 
-@dataclass
-class LibraryInfo:
+
+class LibraryInfo(BaseModel):
     name: str
     version: Optional[str] = None
     is_niche: bool = False
     popularity_score: Optional[float] = None
     documentation_url: Optional[str] = None
+
+
+@tool
+def detect_libraries(input: str) -> List[LibraryInfo]:
+    """Detects libraries/APIs mentioned in the input and returns their structured metadata."""
+    pass  # The model simulates this
+
+
+system_message = SystemMessage(content="""You are a library detection agent.
+Extract any niche or obscure programming libraries, frameworks, or APIs mentioned in the input.
+Return a JSON array where each item is an object with the following fields:
+- name (string)
+- version (string or null)
+- is_niche (boolean)
+- popularity_score (float or null)
+- documentation_url (string or null)
+
+Return only a JSON array of these objects. If none, return [].
+Do not include any extra text or explanation.""")
+
 
 class LibraryAnalyzer:
     def __init__(self, model_name: str = "gpt-4o-mini"):
@@ -41,54 +61,27 @@ class LibraryAnalyzer:
             'discord', 'telegram', 'whatsapp', 'facebook', 'twitter', 'instagram',
             'linkedin', 'youtube', 'spotify', 'paypal', 'square', 'shopify'
         }
-        
         # Cache for library popularity scores
         self.popularity_cache = {}
-        
         # Initialize LLM for fallback detection
-        self.llm = ChatOpenAI(model=model_name, max_tokens=50)
-        self._setup_llm_agent()
-        
-    def _setup_llm_agent(self):
-        """Set up the LLM agent for library detection."""
-        # Create a tool for library detection
-        detect_libraries_tool = Tool(
-            name="detect_libraries",
-            func=lambda x: x,  # Placeholder, actual detection is in the prompt
-            description="Detect libraries and APIs mentioned in the text. Return a JSON array of library names."
-        )
-        
-        # Create the system message
-        system_message = SystemMessage(content="""You are a library detection agent. Your task is to identify any niche programming libraries, frameworks, or APIs mentioned in the text.
-        You are only supposed to that are very uncommon, which might not have been used by many people and has very less documentation. The kind of apis and libraries on which an LLM might fail in code generation.
-        Return ONLY a JSON array of library names, nothing else. Example: ["obscure-lib", "pypdf345", "pytorch-molecule"].
-        If no libraries are mentioned, return an empty array: [].
-        Do not include explanations or any other text.""")
-        
-        # Create the prompt template
-        prompt = ChatPromptTemplate.from_messages([
-            system_message,
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ])
-        
-        # Create the agent
-        agent = create_openai_tools_agent(self.llm, [detect_libraries_tool], prompt)
-        
-        # Create the agent executor
-        self.agent_executor = AgentExecutor(
-            agent=agent,
-            tools=[detect_libraries_tool],
-            verbose=False
-        )
+        self.llm = ChatOpenAI(model=model_name, max_tokens=500)
 
-    def _detect_libraries_with_llm(self, text: str) -> List[str]:
+    def _detect_libraries_with_llm(self, text: str) -> List[LibraryInfo]:
         """Use LLM to detect libraries in text when pattern matching fails."""
-        try:
-            response = self.agent_executor.invoke({"input": text})
-            # Parse the response as JSON
-            libraries = json.loads(response["output"])
-            return libraries if isinstance(libraries, list) else []
+        try:        
+            libraries = []
+            prompt = ChatPromptTemplate.from_messages([
+                system_message,
+                ("human", "{input}"),
+            ])
+            response = self.llm.invoke_with_functions(prompt.format_messages(input=text),
+                                                      functions=[detect_libraries])
+            if len(response.additional_kwargs.get("tool_calls", [])) > 0:
+                tool_call = response.additional_kwargs["tool_calls"][0]
+                arguments = tool_call["function"]["arguments"]
+                args_dict = json.loads(arguments)
+                libraries = [LibraryInfo(**item) for item in args_dict]
+            return libraries
         except Exception as e:
             print(f"Error in LLM library detection: {e}")
             return []
@@ -190,20 +183,12 @@ class LibraryAnalyzer:
                 library_name = match.group(1).lower()
                 if library_name not in {'the', 'a', 'an', 'this', 'that', 'these', 'those'}:
                     found_libraries.add(library_name)
-        
-        # If no libraries found through pattern matching, try LLM
-        if not found_libraries:
-            llm_detected = self._detect_libraries_with_llm(question)
-            found_libraries.update(llm_detected)
-        
-        # Analyze each found library
         results = []
         for library_name in found_libraries:
             version = self._extract_version(question, library_name)
             is_niche = self._is_niche_library(library_name, version)
             popularity = self._get_pypi_stats(library_name)
             docs_url = self._find_documentation_url(library_name)
-            
             results.append(LibraryInfo(
                 name=library_name,
                 version=version,
@@ -212,6 +197,11 @@ class LibraryAnalyzer:
                 documentation_url=docs_url
             ))
         
+        # If no libraries found through pattern matching, try LLM
+        if not found_libraries:
+            llm_detected = self._detect_libraries_with_llm(question)
+            results.extend(llm_detected)
+            
         return results
 
     def get_niche_libraries(self, question: str) -> List[LibraryInfo]:

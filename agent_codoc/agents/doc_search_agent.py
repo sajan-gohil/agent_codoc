@@ -42,7 +42,7 @@ class DocSearchAgent:
         self.llm = ChatOpenAI(model=model_name, max_tokens=100, temperature=0)
         self.search_agent = TavilySearch(
             api_key=self.tavily_api_key,
-            max_results=1,
+            max_results=3,
             include_answer=False,
             include_raw_content=False
         )
