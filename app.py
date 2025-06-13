@@ -7,6 +7,7 @@ import tiktoken
 from dotenv import load_dotenv
 from agent_codoc.chat_session import ChatSession
 from agent_codoc.util_data.code_languages import CODE_LANGUAGES
+from agent_codoc.workflow_graph import create_workflow_graph, AgentState
 import os
 from openai import OpenAI
 from openai.types.chat import ChatCompletion
@@ -174,6 +175,12 @@ if 'messages' not in st.session_state:
 
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = ChatSession()
+
+if "agent_graph" not in st.session_state:
+    st.session_state.agent_graph = create_workflow_graph(
+        chat_session=st.session_state.chat_session,
+        rag_data_io=st.session_state.chat_session.rag_data_io
+    )
 
 if "input_value" not in st.session_state:
     st.session_state["input_value"] = ""
@@ -349,8 +356,11 @@ if st.session_state["is_busy"] and len(st.session_state.messages
        ) > 0 and st.session_state.messages[-1]["role"] == "user":
     user_message = st.session_state.messages[-1]["content"]
     with st.spinner("Fetching Info..."):
-        (bot_response, context_docs, qa_context_docs
-         ) = st.session_state.chat_session.process_message(user_message)
+        # (bot_response, context_docs, qa_context_docs
+        #  ) = st.session_state.chat_session.process_message(user_message)
+        agent_state = st.session_state.agent_graph.invoke({"question": user_message})
+        bot_response = agent_state["response"]
+        context_docs, qa_context_docs = agent_state["context_docs"], agent_state["qa_context_docs"]
     
     # with st.spinner("Evaluating code..."):
     #     code_eval = st.session_state.chat_session.evaluate_code(bot_response, user_message)

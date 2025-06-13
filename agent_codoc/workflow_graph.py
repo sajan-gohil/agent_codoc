@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, TypedDict, Annotated, Sequence
+from typing import Dict, List, Tuple, TypedDict, Annotated, Sequence, Optional
 from langgraph.graph import StateGraph, END, START
 from langgraph.prebuilt import ToolNode
 from langchain.schema import BaseMessage
@@ -13,26 +13,32 @@ import traceback
 
 # Define the state types
 class AgentState(TypedDict):
-    """The state of the agent workflow."""
-    messages: Annotated[Sequence[BaseMessage], "The messages in the conversation"]
+    """The state of the agent workflow"""
     question: str
-    niche_libraries: List[LibraryInfo]
-    doc_urls: List[str]
-    context: str
-    qa_context: str
-    response: str
+    niche_libraries: List[LibraryInfo] = None
+    doc_urls: List[str] = None
+    context: str = None
+    qa_context: str = None
+    response: str = None
+    context_docs: List[str] = None
+    qa_context_docs: List[str] = None
+
 
 def create_workflow_graph(
     chat_session: ChatSession,
-    library_analyzer: LibraryAnalyzer,
-    doc_search_agent: DocSearchAgent,
-    rag_data_io: RAGDataIO
+    rag_data_io: RAGDataIO,
+    library_analyzer: Optional[LibraryAnalyzer]=None,
+    doc_search_agent: Optional[DocSearchAgent]=None
 ) -> StateGraph:
     """Create the workflow graph for the agent system."""
-    def set_question(state: AgentState) -> AgentState:
-        assert len(state.get("messages", [])) > 0 and state["messages"][-1].get(
-            "content", None)
-        return {"question": state["messages"][-1].get("content")}
+    if library_analyzer is None:
+        library_analyzer = LibraryAnalyzer()
+    if doc_search_agent is None:
+        doc_search_agent = DocSearchAgent()
+
+    def set_state(question: str) -> AgentState:
+        agent_state = AgentState(question=question["question"])
+        return agent_state
 
     def analyze_libraries(state: AgentState) -> AgentState:
         """Analyze the question for niche libraries."""
@@ -63,7 +69,6 @@ def create_workflow_graph(
                 rag_data_io.add_url_document(url)
             except Exception as e:
                 print(f"Error storing documentation from {url}: {e}")
-        
         return {}
     
     def get_rag_context(state: AgentState) -> AgentState:
@@ -73,7 +78,9 @@ def create_workflow_graph(
             context_docs, context, qa_context_docs, qa_context = chat_session.get_message_context(question)
             return {
                 "context": context,
-                "qa_context": qa_context
+                "qa_context": qa_context,
+                "context_docs": context_docs,
+                "qa_context_docs": qa_context_docs
             }
         except:
             traceback.print_exc()
@@ -84,16 +91,16 @@ def create_workflow_graph(
         context = state["context"]
         qa_context = state["qa_context"]
         chat_history = chat_session.truncate_chat_history()
-        
+
         response = chat_session.get_chat_response(
             question=question,
             context=context,
             relevant_qa_context=qa_context,
             chat_history=chat_history
         )
-        
+        chat_session.add_message(f"User: {question} \n\n Response: {response}")  # Add to db
         return {"response": response}
-    
+
     def should_search_docs(state: AgentState) -> str:
         """Determine if we need to search for documentation."""
         niche_libs = state["niche_libraries"]
@@ -103,7 +110,7 @@ def create_workflow_graph(
     workflow = StateGraph(AgentState)
     
     # Add nodes
-    workflow.add_node("set_question", set_question)
+    workflow.add_node("set_state", set_state)
     workflow.add_node("analyze_libraries", analyze_libraries)
     workflow.add_node("search_documentation", search_documentation)
     workflow.add_node("store_documentation", store_documentation)
@@ -111,7 +118,7 @@ def create_workflow_graph(
     workflow.add_node("generate_response", generate_response)
     
     # Add edges
-    workflow.add_edge("set_question", "analyze_libraries")
+    workflow.add_edge("set_state", "analyze_libraries")
     workflow.add_conditional_edges(
         "analyze_libraries",
         should_search_docs,
@@ -126,7 +133,7 @@ def create_workflow_graph(
     workflow.add_edge("generate_response", END)
     
     # Set entry point
-    workflow.set_entry_point("set_question")
+    workflow.set_entry_point("set_state")
     
     return workflow.compile()
 
@@ -163,7 +170,7 @@ def process_message(
     # Add the message and response to chat history
     chat_session.add_message(f"User: {message}\n\nResponse: {final_state['response']}")
     
-    return final_state["response"]
+    return final_state["response"], final_state["context"], final_state["qa_context"]
 
 conn, cur = initialize_db()
 graph = create_workflow_graph(
@@ -174,6 +181,7 @@ graph = create_workflow_graph(
                         cursor=cur,
                         top_k=3)
 )
+
 # # Example usage
 if __name__ == "__main__":
     from dotenv import load_dotenv
