@@ -1,11 +1,13 @@
 import sqlite3
-import sqlite_vec
+from sqlite_utils import Database
+from sqlite_utils_sqlite_vec import sqlite_vec
 
 def initialize_db():
     """Initialize database connection and create necessary tables."""
     try:
         # Initialize database connection
         conn = sqlite3.connect('chat_sessions.db', check_same_thread=False)
+        conn.enable_load_extension(True)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
@@ -71,7 +73,6 @@ if __name__ == '__main__':
         table='rag_documentation_database',
         connection=conn,
         embedding=OpenAIEmbeddings(model="text-embedding-3-small"))
-
 
     rag.add_texts(texts=["Hello, world2!", "This is a test2."])
     res = rag.similarity_search_with_score("Hello, world!", top_k=2)
