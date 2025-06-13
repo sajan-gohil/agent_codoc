@@ -66,9 +66,11 @@ class RAGDataIO:
                         continue
                     
                     if doc.endswith(".md"):
-                        self.add_markdown_document(doc_path)
+                        self.add_markdown_document(doc_path=doc_path)
                     elif doc.endswith(".txt"):
-                        self.add_text_document(doc_path)
+                        self.add_text_document(doc_path=doc_path)
+                    elif doc.endswith(".pdf"):
+                        self.add_pdf_document(doc_path=doc_path)
             except Exception as e:
                 print(f"Error processing documents: {e}")
                 traceback.print_exc()

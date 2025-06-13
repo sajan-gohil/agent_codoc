@@ -172,15 +172,15 @@ def process_message(
     
     return final_state["response"], final_state["context"], final_state["qa_context"]
 
-conn, cur = initialize_db()
-graph = create_workflow_graph(
-    chat_session=ChatSession(),
-    library_analyzer=LibraryAnalyzer(),
-    doc_search_agent=DocSearchAgent(),
-    rag_data_io=RAGDataIO(connection=conn,
-                        cursor=cur,
-                        top_k=3)
-)
+# conn, cur = initialize_db()
+# graph = create_workflow_graph(
+#     chat_session=ChatSession(),
+#     library_analyzer=LibraryAnalyzer(),
+#     doc_search_agent=DocSearchAgent(),
+#     rag_data_io=RAGDataIO(connection=conn,
+#                         cursor=cur,
+#                         top_k=3)
+# )
 
 # # Example usage
 if __name__ == "__main__":
